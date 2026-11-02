@@ -68,6 +68,12 @@ main{flex:1;min-width:0;padding:16px}
 .tag{font-size:11px;padding:1px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--border);color:var(--muted)}
 .tag.w{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
 .ca{display:flex;flex-shrink:0}
+.otp{display:inline-flex;align-items:baseline;gap:6px;margin-top:3px;padding:1px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent);cursor:pointer;font-family:ui-monospace,Consolas,monospace}
+.otp b{font-size:15px;letter-spacing:.05em}.otp i{font-style:normal;font-size:11px;color:var(--muted)}
+.otp.soon b{color:var(--danger)}
+.otp.big{margin:0 0 12px;padding:6px 12px}.otp.big b{font-size:22px}
+.card.trashed{opacity:.75}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;margin-bottom:12px;border:1px dashed var(--border);border-radius:12px;color:var(--muted);font-size:14px}
 .empty{text-align:center;color:var(--muted);padding:60px 16px}
 .empty .big{font-size:44px}
 /* dialogs */
@@ -134,6 +140,8 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
     </div>
     <p id="lockErr" class="err"></p>
     <button class="btn primary wide" id="lockBtn">Открыть</button>
+    <button type="button" class="btn wide" id="bioBtn" hidden style="margin-top:8px">👆 Войти по отпечатку</button>
+    <p id="bioNote" class="muted small" hidden></p>
     <button type="button" id="connBtn" class="link">У меня уже есть хранилище на другом устройстве</button>
     <button type="button" id="resetBtn" class="link">Забыли пароль? Сбросить хранилище</button>
     <p class="note">Данные шифруются AES‑256 прямо в браузере и никуда не отправляются. Мастер‑пароль восстановить нельзя — запомните его.</p>
@@ -153,7 +161,8 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
   </header>
   <div class="body">
     <nav id="side" class="side"></nav>
-    <main><div id="list" class="grid"></div><div id="empty" class="empty" hidden></div></main>
+    <main><div id="trashBar" class="bar" hidden><span>Записи удаляются навсегда через 30 дней после удаления.</span><button class="btn danger" id="emptyTrash">Очистить корзину</button></div>
+      <div id="list" class="grid"></div><div id="empty" class="empty" hidden></div></main>
   </div>
 </div>
 
@@ -170,13 +179,20 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
           <button type="button" class="icon" id="inlineGen" title="Сгенерировать">🎲</button>
           <button type="button" class="icon" data-copyf="password" title="Копировать">⧉</button></div></label>
       <div class="meter"><i id="edMeter"></i></div><small id="edLabel" class="muted"></small>
+      <p id="edLeak" class="err" hidden style="min-height:0"></p>
+      <label class="field" style="margin-top:10px"><span>Ключ 2FA (необязательно)</span>
+        <div class="pw"><input name="totp" id="edTotp" class="mono" placeholder="Секретный ключ или otpauth://…" autocomplete="off" spellcheck="false" autocapitalize="off">
+          <button type="button" class="icon" id="scanBtn" title="Сканировать QR-код камерой">📷</button>
+          <button type="button" class="icon" id="scanImgBtn" title="QR-код со скриншота">🖼</button></div></label>
+      <div id="edOtp" class="otp big" hidden title="Нажмите, чтобы скопировать код"><b></b><i></i></div>
+      <input type="file" id="qrFile" accept="image/*" hidden>
       <label class="field" style="margin-top:10px"><span>Сайт</span><input name="url" placeholder="example.com"></label>
       <label class="field"><span>Папка</span><input name="cat" list="cats" placeholder="Работа, Соцсети, Банки…"><datalist id="cats"></datalist></label>
       <label class="field"><span>Заметки</span><textarea name="notes" rows="3"></textarea></label>
       <label class="check"><input type="checkbox" name="fav"> ★ Избранное</label>
       <p id="edMeta" class="muted small"></p>
     </div>
-    <footer class="df"><button type="button" class="btn danger" id="delBtn">Удалить</button><span class="sp"></span>
+    <footer class="df"><button type="button" class="btn danger" id="delBtn">Удалить</button><button type="button" class="btn" id="restoreBtn" hidden>↩ Восстановить</button><span class="sp"></span>
       <button type="button" class="btn" data-close>Отмена</button><button class="btn primary">Сохранить</button></footer>
   </form>
 </dialog>
@@ -243,6 +259,10 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
       <button class="btn" id="expBtn">⬇ Экспорт</button><button class="btn" id="impBtn">⬆ Импорт</button><input type="file" id="impFile" accept=".json,application/json" hidden></div>
     <div class="set-sec"><b>Импорт из браузера</b><p class="muted small" style="margin:4px 0 8px">Chrome, Edge, Яндекс, Firefox, Safari, Opera, а также Bitwarden, 1Password, KeePass — через CSV‑файл.</p>
       <button class="btn" data-csv>📥 Импорт паролей из браузера</button></div>
+    <div class="set-sec"><b>Проверка утечек</b><p class="muted small" style="margin:4px 0 8px">Пароли сверяются с базой Have I Been Pwned (миллиарды утёкших паролей). Сами пароли никуда не отправляются — только первые 5 символов их хеша, по которым пароль восстановить невозможно. <span id="leakInfo"></span></p>
+      <button class="btn" data-leakcheck>🚨 Проверить все пароли</button></div>
+    <div class="set-sec" id="bioSec" hidden><b>Вход по отпечатку</b><p class="muted small" id="bioInfo" style="margin:4px 0 8px"></p>
+      <button class="btn" id="bioOn">👆 Включить</button><button class="btn danger" id="bioOff" hidden>Отключить</button></div>
     <div class="set-sec" id="installSec" hidden><b>Приложение</b><br><button class="btn" id="installBtn">📲 Установить на это устройство</button></div>
     <div class="set-sec"><b>Безопасность</b><br><button class="btn" id="chgBtn">🔑 Сменить мастер‑пароль</button></div>
   </div>
@@ -276,6 +296,14 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
     </div>
   </div>
   <footer class="df"><span class="sp"></span><button class="btn" data-close id="csvClose">Отмена</button><button class="btn primary" id="csvGo" hidden>Импортировать</button></footer>
+</dialog>
+
+<dialog id="dlgScan">
+  <header class="dh"><h2>Наведите камеру на QR‑код</h2><button type="button" class="icon" data-close>✕</button></header>
+  <div class="dbody">
+    <video id="scanVideo" playsinline muted style="width:100%;border-radius:10px;background:#000;aspect-ratio:1;object-fit:cover"></video>
+    <p class="muted small">QR‑код показывает сайт при включении двухфакторной защиты (2FA, «приложение‑аутентификатор»).</p>
+  </div>
 </dialog>
 
 <dialog id="dlgSync">
@@ -421,7 +449,7 @@ function showLock(){
   $('#app').hidden = true; $('#lock').hidden = false;
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
   $('#lockForm').reset(); $('#lockErr').textContent = ''; meter($('#mpMeter'), $('#mpLabel'), '');
-  S.connect = false; lockMode();
+  S.connect = false; lockMode(); lockBio();
   setTimeout(() => $('#mp1').focus(), 50);
 }
 function lockMode(){
@@ -439,7 +467,8 @@ $('#connBtn').addEventListener('click', () => { S.connect = !S.connect; lockMode
 $('#mp1').addEventListener('input', e => { if(!$('#mp2wrap').hidden) meter($('#mpMeter'), $('#mpLabel'), e.target.value) });
 $('#lockForm').addEventListener('submit', async e => {
   e.preventDefault();
-  const pw = $('#mp1').value, raw = ls.get(VAULT_KEY), err = $('#lockErr'), btn = $('#lockBtn');
+  const pw = S.bioPw ?? $('#mp1').value, raw = ls.get(VAULT_KEY), err = $('#lockErr'), btn = $('#lockBtn');
+  S.bioPw = null;
   err.textContent = '';
   let cfg = null;
   if(!raw && S.connect){
@@ -476,6 +505,7 @@ $('#resetBtn').addEventListener('click', () => {
 function unlock(){
   $('#lock').hidden = true; $('#app').hidden = false; S.last = Date.now(); S.syncPaused = false;
   render(); setSyncState(S.data.sync?.token ? 'ok' : 'off'); syncNow();
+  purgeOld(); autoLeakCheck();
 }
 function lock(){
   clearTimeout(syncTimer);
@@ -489,61 +519,98 @@ $('#lockNow').addEventListener('click', lock);
 setInterval(() => { if(S.key && +prefs.lock && Date.now() - S.last > prefs.lock*60000){ lock(); toast('Хранилище заблокировано из‑за бездействия') } }, 10000);
 
 /* ---------- main view ---------- */
+const live = () => S.data.entries.filter(e => !e.trashed);
+const leakOf = e => { const l = S.data.leaks?.[e.id]; return l && l.u === e.updated ? l.n : null };   // null = not checked for this version
 function analyze(){
-  const counts = {}; S.data.entries.forEach(e => { if(e.password) counts[e.password] = (counts[e.password]||0) + 1 });
-  return e => ({ weak: !!e.password && strength(e.password).score <= 2, reused: !!e.password && counts[e.password] > 1 });
+  const counts = {}; live().forEach(e => { if(e.password) counts[e.password] = (counts[e.password]||0) + 1 });
+  return e => ({ weak: !!e.password && strength(e.password).score <= 2, reused: !!e.password && counts[e.password] > 1, leaked: leakOf(e) > 0 });
 }
+const fmtN = n => n.toLocaleString('ru-RU');
 function render(){
-  const E = S.data.entries, flags = analyze();
+  const E = live(), T = S.data.entries.filter(e => e.trashed), flags = analyze();
   const cats = [...new Set(E.map(e => e.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
   const cnt = f => E.filter(f).length;
-  const weakN = cnt(e => flags(e).weak), reN = cnt(e => flags(e).reused);
+  const weakN = cnt(e => flags(e).weak), reN = cnt(e => flags(e).reused), leakN = cnt(e => flags(e).leaked);
   if(S.filter.startsWith('cat:') && !cats.includes(S.filter.slice(4))) S.filter = 'all';
   const item = (id, label, n, cls='') => `<button data-f="${esc(id)}" class="${S.filter===id?'on':''} ${cls}"><span>${label}</span><span class="n">${n}</span></button>`;
   $('#side').innerHTML =
-    item('all','🗂 Все записи',E.length) + item('fav','★ Избранное',cnt(e=>e.fav)) +
+    item('all','🗂 Все записи',E.length) + item('fav','★ Избранное',cnt(e=>e.fav)) + item('otp','🔢 С кодами 2FA',cnt(e=>e.totp)) +
     (cats.length ? '<h4>Папки</h4>' + cats.map(c => item('cat:'+c, '📁 '+esc(c), cnt(e=>e.cat===c))).join('') : '') +
-    '<h4>Проверка</h4>' + item('weak','⚠ Слабые',weakN, weakN?'bad':'') + item('reused','♻ Повторяются',reN, reN?'bad':'');
+    '<h4>Проверка</h4>' + item('leaked','🚨 В утечках',leakN, leakN?'bad':'') + item('weak','⚠ Слабые',weakN, weakN?'bad':'') + item('reused','♻ Повторяются',reN, reN?'bad':'') +
+    '<h4> </h4>' + item('trash','🗑 Корзина',T.length);
   $('#cats').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
 
-  const q = S.q.trim().toLowerCase();
-  const list = E.filter(e => {
-    const f = S.filter;
+  const q = S.q.trim().toLowerCase(), f = S.filter, inTrash = f === 'trash';
+  const list = (inTrash ? T : E).filter(e => {
     if(f==='fav' && !e.fav) return false;
+    if(f==='otp' && !e.totp) return false;
     if(f==='weak' && !flags(e).weak) return false;
     if(f==='reused' && !flags(e).reused) return false;
+    if(f==='leaked' && !flags(e).leaked) return false;
     if(f.startsWith('cat:') && e.cat !== f.slice(4)) return false;
     return !q || [e.title,e.login,e.url,e.cat,e.notes].some(v => (v||'').toLowerCase().includes(q));
-  }).sort((a,b) => (b.fav-a.fav) || a.title.localeCompare(b.title,'ru'));
+  }).sort(inTrash ? (a,b) => b.trashed - a.trashed : (a,b) => (b.fav-a.fav) || a.title.localeCompare(b.title,'ru'));
 
+  $('#trashBar').hidden = !inTrash || !T.length;
   $('#list').innerHTML = list.map(e => {
     const fl = flags(e), h = hue(e.title);
-    return `<div class="card" data-id="${e.id}">
+    const left = inTrash ? Math.max(0, Math.ceil((e.trashed + TRASH_DAYS*864e5 - Date.now()) / 864e5)) : 0;
+    return `<div class="card${inTrash?' trashed':''}" data-id="${e.id}">
       <div class="av" style="background:hsl(${h} 55% 52%)">${esc((e.title||'?')[0].toUpperCase())}</div>
       <div class="ci"><div class="ct">${e.fav?'★ ':''}${esc(e.title)}</div>
         <div class="cl">${esc(e.login || host(e.url) || 'без логина')}</div>
-        <div class="tags">${e.cat?`<span class="tag">${esc(e.cat)}</span>`:''}${fl.weak?'<span class="tag w">слабый</span>':''}${fl.reused?'<span class="tag w">повтор</span>':''}</div></div>
-      <div class="ca">
+        ${e.totp && !inTrash ? `<div class="otp" data-otp="${e.id}" title="Нажмите, чтобы скопировать код"><b>··· ···</b><i></i></div>` : ''}
+        <div class="tags">${inTrash ? `<span class="tag">удалится через ${left} дн.</span>` :
+          (e.cat?`<span class="tag">${esc(e.cat)}</span>`:'') + (fl.leaked?'<span class="tag w">утечка</span>':'') + (fl.weak?'<span class="tag w">слабый</span>':'') + (fl.reused?'<span class="tag w">повтор</span>':'')}</div></div>
+      <div class="ca">${inTrash ? '<button class="icon" data-a="restore" title="Восстановить">↩</button>' : `
         ${e.login?'<button class="icon" data-a="login" title="Копировать логин">👤</button>':''}
         <button class="icon" data-a="pw" title="Копировать пароль">🔑</button>
-        ${e.url?'<button class="icon" data-a="go" title="Открыть сайт">↗</button>':''}
+        ${e.url?'<button class="icon" data-a="go" title="Открыть сайт">↗</button>':''}`}
       </div></div>`;
   }).join('');
   const emp = $('#empty');
   emp.hidden = list.length > 0;
-  emp.innerHTML = E.length === 0
+  emp.innerHTML = inTrash ? `<div class="big">🗑</div><p>Корзина пуста.<br>Удалённые записи хранятся здесь ${TRASH_DAYS} дней.</p>`
+    : E.length === 0
     ? '<div class="big">🗝️</div><p>Хранилище пустое.<br>Нажмите <b>＋ Добавить</b>, чтобы сохранить первый пароль,<br>или перенесите все пароли из браузера.</p><button class="btn primary" data-csv>📥 Импорт из браузера</button>'
+    : f === 'leaked' ? '<div class="big">🛡️</div><p>Ни один пароль не найден в утечках.</p><button class="btn" data-leakcheck>Проверить ещё раз</button>'
     : '<div class="big">🔍</div><p>Ничего не найдено</p>';
+  tickOtp();
 }
 $('#side').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(b){ S.filter = b.dataset.f; render() } });
 $('#q').addEventListener('input', e => { S.q = e.target.value; render() });
-$('#list').addEventListener('click', e => {
+$('#list').addEventListener('click', async e => {
   const card = e.target.closest('.card'); if(!card) return;
   const it = S.data.entries.find(x => x.id === card.dataset.id), a = e.target.closest('[data-a]')?.dataset.a;
-  if(a === 'login') copy(it.login, 'Логин');
+  const otp = e.target.closest('[data-otp]');
+  if(otp) copy(otp.dataset.code, 'Код 2FA');
+  else if(a === 'login') copy(it.login, 'Логин');
   else if(a === 'pw') copy(it.password, 'Пароль');
   else if(a === 'go') window.open(normUrl(it.url), '_blank', 'noopener');
+  else if(a === 'restore') await restoreEntry(it);
   else openEdit(it);
+});
+
+/* ---------- trash ---------- */
+const TRASH_DAYS = 30;
+async function restoreEntry(it){
+  delete it.trashed; it.updated = Date.now();
+  await persist(); render(); toast(`«${it.title}» восстановлена`);
+}
+function purge(ids){
+  const now = Date.now(), set = new Set(ids);
+  S.data.entries = S.data.entries.filter(x => !set.has(x.id));
+  S.data.deleted ||= {};
+  for(const id of ids){ S.data.deleted[id] = now; delete S.data.leaks?.[id] }
+}
+async function purgeOld(){
+  const old = S.data.entries.filter(e => e.trashed && Date.now() - e.trashed > TRASH_DAYS * 864e5).map(e => e.id);
+  if(old.length){ purge(old); await persist(); render() }
+}
+$('#emptyTrash').addEventListener('click', async () => {
+  const ids = S.data.entries.filter(e => e.trashed).map(e => e.id);
+  if(!ids.length || !confirm(`Удалить навсегда ${ids.length} зап. из корзины?\nВосстановить их будет нельзя — на всех устройствах.`)) return;
+  purge(ids); await persist(); render(); toast('Корзина очищена');
 });
 
 /* ---------- edit ---------- */
@@ -551,15 +618,21 @@ const F = $('#editForm');
 function openEdit(it){
   S.editId = it?.id || null;
   F.reset(); $('#edPw').type = 'password';
-  $('#editTitle').textContent = it ? 'Редактирование' : 'Новая запись';
-  $('#delBtn').hidden = !it;
-  if(it){ ['title','login','password','url','cat','notes'].forEach(k => F.elements[k].value = it[k] || ''); F.elements.fav.checked = !!it.fav }
+  $('#editTitle').textContent = it?.trashed ? 'В корзине' : it ? 'Редактирование' : 'Новая запись';
+  $('#delBtn').hidden = !it; $('#restoreBtn').hidden = !it?.trashed;
+  $('#delBtn').textContent = it?.trashed ? 'Удалить навсегда' : 'Удалить';
+  if(it){ EDIT_FIELDS.forEach(k => F.elements[k].value = it[k] || ''); F.elements.fav.checked = !!it.fav }
   else if(S.filter.startsWith('cat:')) F.elements.cat.value = S.filter.slice(4);
   $('#edMeta').textContent = it ? `Создано: ${fmtDate(it.created)} · Изменено: ${fmtDate(it.updated)}` : '';
+  const n = it && leakOf(it);
+  $('#edLeak').hidden = !(n > 0);
+  $('#edLeak').textContent = n > 0 ? `🚨 Этот пароль найден в утечках ${fmtN(n)} раз — смените его на сайте и здесь.` : '';
   meter($('#edMeter'), $('#edLabel'), F.elements.password.value);
-  $('#dlgEdit').showModal(); F.elements.title.focus();
+  $('#dlgEdit').showModal(); F.elements.title.focus(); tickOtp();
 }
-F.elements.password.addEventListener('input', e => meter($('#edMeter'), $('#edLabel'), e.target.value));
+const EDIT_FIELDS = ['title','login','password','url','cat','notes','totp'];
+F.elements.password.addEventListener('input', e => { meter($('#edMeter'), $('#edLabel'), e.target.value); $('#edLeak').hidden = true });
+F.elements.totp.addEventListener('input', tickOtp);
 F.addEventListener('click', e => { const b = e.target.closest('[data-copyf]'); if(b) copy(F.elements[b.dataset.copyf].value, b.dataset.copyf==='login'?'Логин':'Пароль') });
 $('#inlineGen').addEventListener('click', () => {
   F.elements.password.value = generate(prefs.gen); $('#edPw').type = 'text';
@@ -567,21 +640,227 @@ $('#inlineGen').addEventListener('click', () => {
 });
 F.addEventListener('submit', async e => {
   e.preventDefault();
-  const v = Object.fromEntries(['title','login','password','url','cat','notes'].map(k => [k, F.elements[k].value.trim()]));
+  const v = Object.fromEntries(EDIT_FIELDS.map(k => [k, F.elements[k].value.trim()]));
   v.password = F.elements.password.value; v.fav = F.elements.fav.checked;
+  if(v.totp && parseOtp(v.totp).err){ toast('⚠ Ключ 2FA не распознан — проверьте его или очистите поле'); return F.elements.totp.focus() }
   const now = Date.now();
-  if(S.editId){ Object.assign(S.data.entries.find(x => x.id === S.editId), v, {updated:now}) }
-  else S.data.entries.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(now)+Math.random(), ...v, created:now, updated:now });
+  let it = S.data.entries.find(x => x.id === S.editId);
+  const pwChanged = !it || it.password !== v.password;
+  if(it){
+    const keepLeak = !pwChanged && leakOf(it) !== null;
+    Object.assign(it, v, {updated:now});
+    if(keepLeak) S.data.leaks[it.id].u = now;   // same password → previous check still valid
+  }
+  else S.data.entries.push(it = { id: crypto.randomUUID ? crypto.randomUUID() : String(now)+Math.random(), ...v, created:now, updated:now });
   await persist(); $('#dlgEdit').close(); render(); toast('Сохранено');
+  if(pwChanged && v.password) checkLeaks([it]);
 });
 $('#delBtn').addEventListener('click', async () => {
   const it = S.data.entries.find(x => x.id === S.editId);
-  if(!confirm(`Удалить «${it.title}»?`)) return;
-  S.data.entries = S.data.entries.filter(x => x.id !== S.editId);
-  (S.data.deleted ||= {})[S.editId] = Date.now();
-  await persist(); $('#dlgEdit').close(); render(); toast('Запись удалена');
+  if(it.trashed){
+    if(!confirm(`Удалить «${it.title}» навсегда?\nВосстановить будет нельзя — на всех устройствах.`)) return;
+    purge([it.id]); await persist(); $('#dlgEdit').close(); render(); toast('Удалено навсегда');
+    return;
+  }
+  it.trashed = it.updated = Date.now();
+  await persist(); $('#dlgEdit').close(); render(); toast(`Перемещено в корзину · хранится ${TRASH_DAYS} дней`);
 });
+$('#restoreBtn').addEventListener('click', async () => { await restoreEntry(S.data.entries.find(x => x.id === S.editId)); $('#dlgEdit').close() });
 $('#addBtn').addEventListener('click', () => openEdit(null));
+
+/* ---------- 2FA codes (TOTP, RFC 6238) ---------- */
+function b32decode(s){
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', out = [];
+  let bits = 0, val = 0;
+  for(const c of s.toUpperCase().replace(/[\s=-]/g, '')){
+    const i = A.indexOf(c); if(i < 0) throw new Error('b32');
+    val = (val << 5) | i; bits += 5;
+    if(bits >= 8){ out.push((val >>> (bits - 8)) & 255); bits -= 8 }
+  }
+  return new Uint8Array(out);
+}
+function parseOtp(s){
+  s = (s || '').trim(); if(!s) return null;
+  if(/^otpauth-migration:/i.test(s)) return {err:'Это экспорт из Google Authenticator — добавляйте ключи по одному, отсканировав QR‑код на сайте'};
+  try{
+    if(/^otpauth:/i.test(s)){
+      const u = new URL(s), p = u.searchParams, label = decodeURIComponent(u.pathname.replace(/^\/+/, ''));
+      if(u.host.toLowerCase() !== 'totp') return {err:'Поддерживаются только коды по времени (TOTP)'};
+      const secret = (p.get('secret') || '').replace(/\s/g, '');
+      if(b32decode(secret).length < 10) throw 0;
+      return { secret, digits: +p.get('digits') || 6, period: +p.get('period') || 30,
+               algo: (p.get('algorithm') || 'SHA1').toUpperCase().replace(/^SHA-?/, 'SHA-'),
+               issuer: p.get('issuer') || label.split(':')[0], account: label.includes(':') ? label.split(':').slice(1).join(':').trim() : '' };
+    }
+    if(b32decode(s).length < 10) throw 0;   // real secrets are at least 80 bits
+    return { secret: s.replace(/[\s-]/g, '').toUpperCase(), digits:6, period:30, algo:'SHA-1' };
+  }catch{ return {err:'Не похоже на ключ 2FA'} }
+}
+const otpKeys = new Map();
+async function totp(o, t = Date.now()){
+  const id = o.algo + o.secret;
+  let key = otpKeys.get(id);
+  if(!key){ key = await crypto.subtle.importKey('raw', b32decode(o.secret), {name:'HMAC', hash:o.algo}, false, ['sign']); otpKeys.set(id, key) }
+  const ctr = Math.floor(t / 1000 / o.period), buf = new DataView(new ArrayBuffer(8));
+  buf.setUint32(0, Math.floor(ctr / 2**32)); buf.setUint32(4, ctr >>> 0);
+  const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, buf.buffer)), off = h[h.length - 1] & 15;
+  const n = (((h[off] & 127) << 24) | (h[off+1] << 16) | (h[off+2] << 8) | h[off+3]) % 10 ** o.digits;
+  return String(n).padStart(o.digits, '0');
+}
+async function paintOtp(el, src){
+  const o = parseOtp(src);
+  if(!o || o.err){ el.hidden = el.id === 'edOtp'; return }
+  const code = await totp(o), left = o.period - Math.floor(Date.now() / 1000) % o.period;
+  el.hidden = false; el.dataset.code = code;
+  el.querySelector('b').textContent = code.length === 6 ? code.slice(0, 3) + ' ' + code.slice(3) : code;
+  el.querySelector('i').textContent = left + ' с';
+  el.classList.toggle('soon', left <= 5);
+}
+function tickOtp(){
+  if(!S.key) return;
+  document.querySelectorAll('#list [data-otp]').forEach(el => paintOtp(el, S.data.entries.find(x => x.id === el.dataset.otp)?.totp));
+  if($('#dlgEdit').open) paintOtp($('#edOtp'), F.elements.totp.value);
+}
+setInterval(tickOtp, 1000);
+$('#edOtp').addEventListener('click', e => copy(e.currentTarget.dataset.code, 'Код 2FA'));
+
+/* QR scanning — BarcodeDetector exists in Chrome on Android, not on Windows */
+const canScan = 'BarcodeDetector' in window;
+$('#scanBtn').hidden = $('#scanImgBtn').hidden = !canScan;
+const detectQR = async src => (await new BarcodeDetector({formats:['qr_code']}).detect(src))[0]?.rawValue;
+function applyOtp(v){
+  const o = parseOtp(v);
+  if(!o || o.err) return toast(o?.err || 'Это не QR‑код двухфакторной защиты');
+  F.elements.totp.value = v;
+  if(!F.elements.title.value && o.issuer) F.elements.title.value = o.issuer;
+  if(!F.elements.login.value && o.account) F.elements.login.value = o.account;
+  tickOtp(); toast('Ключ 2FA добавлен — не забудьте сохранить');
+}
+let scanStream = null;
+$('#scanBtn').addEventListener('click', async () => {
+  const video = $('#scanVideo'), d = $('#dlgScan');
+  try{ scanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}) }
+  catch{ return toast('Нет доступа к камере — разрешите его в настройках браузера или загрузите скриншот 🖼') }
+  video.srcObject = scanStream; d.showModal(); await video.play().catch(() => {});
+  while(d.open){
+    try{ const v = await detectQR(video); if(v){ d.close(); applyOtp(v); break } }catch{}
+    await new Promise(r => setTimeout(r, 250));
+  }
+});
+$('#dlgScan').addEventListener('close', () => { scanStream?.getTracks().forEach(t => t.stop()); scanStream = null; $('#scanVideo').srcObject = null });
+$('#scanImgBtn').addEventListener('click', () => $('#qrFile').click());
+$('#qrFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if(!file) return;
+  try{ const v = await detectQR(await createImageBitmap(file)); v ? applyOtp(v) : toast('На картинке не найден QR‑код') }
+  catch{ toast('Не удалось прочитать картинку') }
+});
+
+/* ---------- leak check (Have I Been Pwned, k-anonymity) ---------- */
+async function sha1hex(s){
+  return [...new Uint8Array(await crypto.subtle.digest('SHA-1', enc.encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+async function pwnedCount(pw){
+  const h = await sha1hex(pw), r = await fetch('https://api.pwnedpasswords.com/range/' + h.slice(0, 5));
+  if(!r.ok) throw new Error('HIBP ' + r.status);
+  const line = (await r.text()).split('\n').find(l => l.startsWith(h.slice(5)));
+  return line ? parseInt(line.split(':')[1], 10) : 0;
+}
+async function checkLeaks(list, manual){
+  if(S.leakBusy || !S.key) return;
+  const todo = (list || live()).filter(e => e.password && !e.trashed);
+  if(!todo.length) return manual && toast('Нет паролей для проверки');
+  S.leakBusy = true;
+  const L = S.data.leaks ||= {}, byPw = new Map();
+  let done = 0, failed = 0;
+  const one = async e => {
+    if(!byPw.has(e.password)) byPw.set(e.password, pwnedCount(e.password));
+    try{ L[e.id] = { n: await byPw.get(e.password), u: e.updated } }catch{ failed++ }
+    if(manual && ++done % 10 === 0) toast(`Проверено ${done} из ${todo.length}…`);
+  };
+  try{
+    const queue = [...todo];
+    await Promise.all(Array.from({length:4}, async () => { while(queue.length && S.key) await one(queue.shift()) }));
+    if(!S.key) return;
+    if(!list) S.data.leaksAt = Date.now();
+    await saveLocal(); render();
+    const bad = todo.filter(e => leakOf(e) > 0).length;
+    if(failed && manual) toast(failed === todo.length ? '⚠ Не удалось проверить — нет связи с сервисом' : `⚠ Проверено не всё (${failed} с ошибкой)`);
+    else if(manual || bad) toast(bad ? `🚨 Найдено в утечках: ${bad} — см. «В утечках»` : '🛡️ Ни один пароль не найден в утечках');
+  }finally{ S.leakBusy = false }
+}
+document.addEventListener('click', e => { if(e.target.closest('[data-leakcheck]') && S.key){ $('#dlgSet').close(); checkLeaks(null, true) } });
+function autoLeakCheck(){
+  if(!navigator.onLine) return;
+  if(Date.now() - (S.data.leaksAt || 0) > 7 * 864e5) checkLeaks();            // weekly full re-check: leak databases grow
+  else { const fresh = live().filter(e => e.password && leakOf(e) === null); if(fresh.length) checkLeaks(fresh) }
+}
+
+/* ---------- fingerprint unlock (WebAuthn PRF) ----------
+   A passkey's PRF output (only released after fingerprint) encrypts the master password on this device. */
+const BIO_KEY = 'pv_bio_v1';
+const bioData = () => { try{ return JSON.parse(ls.get(BIO_KEY) || 'null') }catch{ return null } };
+const vaultSalt = () => { try{ return JSON.parse(ls.get(VAULT_KEY)).salt }catch{ return null } };
+async function bioAvailable(){
+  try{ return !!location.hostname && !!window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable() }
+  catch{ return false }
+}
+async function prfKey(credId, salt){
+  const a = await navigator.credentials.get({ publicKey:{ challenge: crypto.getRandomValues(new Uint8Array(32)), rpId: location.hostname,
+    allowCredentials:[{type:'public-key', id:credId}], userVerification:'required', timeout:60000, extensions:{ prf:{ eval:{ first:salt } } } } });
+  const out = a.getClientExtensionResults().prf?.results?.first;
+  if(!out) throw new Error('noprf');
+  const base = await crypto.subtle.importKey('raw', out, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'HKDF', hash:'SHA-256', salt:new Uint8Array(32), info:enc.encode('pv-bio')}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+const bioErr = e => e?.message === 'noprf' ? 'Этот браузер или телефон не поддерживает вход по отпечатку для сайтов. Используйте Chrome и включите блокировку экрана отпечатком.'
+  : e?.name === 'NotAllowedError' ? 'Отменено' : 'Не получилось: ' + (e?.message || e);
+async function renderBio(){
+  const avail = await bioAvailable(), b = bioData(), on = !!b && b.vs === vaultSalt();
+  $('#bioSec').hidden = !avail;
+  $('#bioOn').hidden = on; $('#bioOff').hidden = !on;
+  $('#bioInfo').textContent = on ? 'Включено на этом устройстве. Мастер‑пароль всё равно понадобится, если отпечаток не сработает.'
+    : b ? 'Отключено: мастер‑пароль изменился. Включите заново.'
+    : 'Открывайте хранилище отпечатком пальца вместо ввода мастер‑пароля. Настраивается отдельно на каждом устройстве.';
+}
+$('#bioOn').addEventListener('click', async () => {
+  const pw = await ask({ title:'Вход по отпечатку', text:'Введите мастер‑пароль ещё раз. Он будет зашифрован ключом, который выдаётся только после вашего отпечатка на этом устройстве.',
+    check: async p => { try{ await unseal(JSON.parse(ls.get(VAULT_KEY)), p); return p }catch{ throw 'Неверный пароль' } } });
+  if(!pw) return;
+  try{
+    const salt = crypto.getRandomValues(new Uint8Array(32));
+    const cred = await navigator.credentials.create({ publicKey:{
+      rp:{ name:'Хранилище паролей', id:location.hostname },
+      user:{ id: crypto.getRandomValues(new Uint8Array(16)), name:'Хранилище паролей', displayName:'Хранилище паролей' },
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      pubKeyCredParams:[{type:'public-key', alg:-7}, {type:'public-key', alg:-257}],
+      authenticatorSelection:{ authenticatorAttachment:'platform', userVerification:'required', residentKey:'required' },
+      timeout:60000, extensions:{ prf:{} } } });
+    if(cred.getClientExtensionResults().prf?.enabled === false) throw new Error('noprf');
+    const credId = new Uint8Array(cred.rawId);
+    toast('Приложите палец ещё раз — проверка');
+    const key = await prfKey(credId, salt), iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(pw)));
+    ls.set(BIO_KEY, JSON.stringify({ id:b64(credId), salt:b64(salt), iv:b64(iv), ct:b64(ct), vs:vaultSalt() }));
+    renderBio(); toast('👆 Вход по отпечатку включён');
+  }catch(e){ toast(bioErr(e)) }
+});
+$('#bioOff').addEventListener('click', () => { ls.del(BIO_KEY); renderBio(); toast('Вход по отпечатку отключён') });
+async function bioUnlock(){
+  const b = bioData(); if(!b || b.vs !== vaultSalt()) return;
+  try{
+    const key = await prfKey(ub64(b.id), ub64(b.salt));
+    S.bioPw = dec.decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:ub64(b.iv)}, key, ub64(b.ct)));
+    $('#lockForm').requestSubmit();
+  }catch(e){ if(e?.name !== 'NotAllowedError') $('#lockErr').textContent = bioErr(e) }
+}
+$('#bioBtn').addEventListener('click', bioUnlock);
+function lockBio(){
+  const b = bioData(), on = !!b && b.vs === vaultSalt() && !!ls.get(VAULT_KEY);
+  $('#bioBtn').hidden = !on;
+  $('#bioNote').hidden = !(b && !on && ls.get(VAULT_KEY));
+  $('#bioNote').textContent = 'Вход по отпечатку отключён, потому что мастер‑пароль изменился. Войдите паролем и включите заново в ⚙️.';
+  return on;
+}
 
 /* ---------- generator ---------- */
 const G = { len:$('#gLen'), up:$('#gUp'), lo:$('#gLo'), di:$('#gDi'), sy:$('#gSy'), sim:$('#gSim') };
@@ -912,7 +1191,9 @@ $('#syncOffBtn').addEventListener('click', async () => {
 document.addEventListener('visibilitychange', () => { if(!document.hidden && S.key && Date.now() - (S.lastSync || 0) > 30000) syncNow() });
 
 /* ---------- settings ---------- */
-$('#setBtn').addEventListener('click', () => { $('#sTheme').value = prefs.theme; $('#sLock').value = prefs.lock; renderSyncSettings(); $('#dlgSet').showModal() });
+$('#setBtn').addEventListener('click', () => { $('#sTheme').value = prefs.theme; $('#sLock').value = prefs.lock; renderSyncSettings(); renderBio();
+  $('#leakInfo').textContent = S.data.leaksAt ? 'Последняя полная проверка: ' + fmtDate(S.data.leaksAt) + '. Новые пароли проверяются сразу, все — раз в неделю.' : '';
+  $('#dlgSet').showModal() });
 $('#sTheme').addEventListener('change', e => { prefs.theme = e.target.value; savePrefs(); applyTheme() });
 $('#sLock').addEventListener('change', e => { prefs.lock = +e.target.value; savePrefs() });
 $('#expBtn').addEventListener('click', async () => {
@@ -993,7 +1274,7 @@ $('#csvFile').addEventListener('change', async e => {
              password: col.password >= 0 ? (r[col.password] || '') : '', notes: get(r, 'notes'), cat: get(r, 'cat') };
   }).filter(x => x.password && !/^(chrome|about|moz-extension|chrome-extension):/i.test(x.url));
 
-  const existing = new Map(S.data.entries.map(x => [entryKey(x), x])), seen = new Set();
+  const existing = new Map(live().map(x => [entryKey(x), x])), seen = new Set();
   const plan = { add:[], update:[], same:0, total:items.length };
   for(const it of items){
     const k = entryKey(it);
@@ -1070,7 +1351,7 @@ $('#installBtn').addEventListener('click', async () => {
 addEventListener('appinstalled', () => { $('#installSec').hidden = true; toast('Приложение установлено') });
 
 if(!crypto.subtle){ document.body.innerHTML = '<p style="padding:24px">Этот браузер не поддерживает шифрование (Web Crypto). Откройте файл в свежем Chrome, Edge или Firefox.</p>' }
-else showLock();
+else { showLock(); if(lockBio()) bioUnlock() }   // offer the fingerprint right away when the app is opened
 </script>
 </body>
 </html>
