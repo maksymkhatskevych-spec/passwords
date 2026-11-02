@@ -263,7 +263,9 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
       <button class="btn" data-leakcheck>🚨 Проверить все пароли</button></div>
     <div class="set-sec" id="bioSec" hidden><b>Вход по отпечатку</b><p class="muted small" id="bioInfo" style="margin:4px 0 8px"></p>
       <button class="btn" id="bioOn">👆 Включить</button><button class="btn danger" id="bioOff" hidden>Отключить</button></div>
-    <div class="set-sec" id="installSec" hidden><b>Приложение</b><br><button class="btn" id="installBtn">📲 Установить на это устройство</button></div>
+    <div class="set-sec"><b>Приложение</b> <span class="muted small" id="appVer"></span><br>
+      <button class="btn" id="installBtn" hidden>📲 Установить на это устройство</button>
+      <button class="btn" id="updBtn" hidden>🔄 Проверить обновления</button></div>
     <div class="set-sec"><b>Безопасность</b><br><button class="btn" id="chgBtn">🔑 Сменить мастер‑пароль</button></div>
   </div>
 </dialog>
@@ -1342,13 +1344,20 @@ if('serviceWorker' in navigator && (location.protocol === 'https:' || location.h
   navigator.serviceWorker.register('sw.js').catch(() => {});
   navigator.storage?.persist?.().catch(() => {});   // ask the browser not to evict the vault
 }
+const APP_VERSION = '1.4 · 2 ноября 2026';
+$('#appVer').textContent = 'версия ' + APP_VERSION;
+$('#updBtn').hidden = !('serviceWorker' in navigator && location.protocol === 'https:');
+$('#updBtn').addEventListener('click', async () => {
+  try{ await (await navigator.serviceWorker.getRegistration())?.update() }catch{}
+  toast('Загружаю свежую версию…'); setTimeout(() => location.reload(), 800);
+});
 let installEvt = null;
-addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installSec').hidden = false });
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installBtn').hidden = false });
 $('#installBtn').addEventListener('click', async () => {
   if(!installEvt) return;
-  installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installSec').hidden = true;
+  installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installBtn').hidden = true;
 });
-addEventListener('appinstalled', () => { $('#installSec').hidden = true; toast('Приложение установлено') });
+addEventListener('appinstalled', () => { $('#installBtn').hidden = true; toast('Приложение установлено') });
 
 if(!crypto.subtle){ document.body.innerHTML = '<p style="padding:24px">Этот браузер не поддерживает шифрование (Web Crypto). Откройте файл в свежем Chrome, Edge или Firefox.</p>' }
 else { showLock(); if(lockBio()) bioUnlock() }   // offer the fingerprint right away when the app is opened
