@@ -128,8 +128,13 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
       <label class="field"><span>Повторите мастер-пароль</span><input id="mp2" type="password"></label>
       <div class="meter"><i id="mpMeter"></i></div><small id="mpLabel" class="muted"></small>
     </div>
+    <div id="connWrap" hidden>
+      <label class="field"><span>Репозиторий GitHub</span><input id="cRepo" placeholder="ваш-логин/passwords-data" autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span>Токен доступа</span><input id="cTok" type="password" placeholder="github_pat_…"></label>
+    </div>
     <p id="lockErr" class="err"></p>
     <button class="btn primary wide" id="lockBtn">Открыть</button>
+    <button type="button" id="connBtn" class="link">У меня уже есть хранилище на другом устройстве</button>
     <button type="button" id="resetBtn" class="link">Забыли пароль? Сбросить хранилище</button>
     <p class="note">Данные шифруются AES‑256 прямо в браузере и никуда не отправляются. Мастер‑пароль восстановить нельзя — запомните его.</p>
   </form>
@@ -142,6 +147,7 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
     <button class="btn" id="genBtn" title="Генератор паролей">🎲 <span class="hide-sm">Генератор</span></button>
     <button class="btn" id="mailBtn" title="Генератор почты">✉ <span class="hide-sm">Почта</span></button>
     <button class="btn primary" id="addBtn" title="Новая запись (N)">＋ <span class="hide-sm">Добавить</span></button>
+    <button class="icon" id="syncBtn" title="Синхронизация" hidden>☁️</button>
     <button class="icon" id="setBtn" title="Настройки">⚙️</button>
     <button class="icon" id="lockNow" title="Заблокировать (L)">🔒</button>
   </header>
@@ -229,6 +235,10 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
       <select id="sTheme"><option value="">Как в системе</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
       <label class="field"><span>Автоблокировка при бездействии</span>
       <select id="sLock"><option value="1">1 минута</option><option value="5">5 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="0">Никогда</option></select></label></div>
+    <div class="set-sec"><b>Синхронизация между устройствами</b>
+      <p class="muted small" id="syncInfo" style="margin:4px 0 8px"></p>
+      <div id="syncOff"><button class="btn" id="syncSetup">☁️ Настроить синхронизацию</button></div>
+      <div id="syncOn" hidden><button class="btn" id="syncNowBtn">🔄 Синхронизировать сейчас</button><button class="btn" id="syncEdit">Сменить токен</button><button class="btn danger" id="syncOffBtn">Отключить</button></div></div>
     <div class="set-sec"><b>Резервная копия</b><p class="muted small" style="margin:4px 0 8px">Файл зашифрован вашим мастер‑паролем. Храните копию отдельно — при очистке данных браузера хранилище пропадёт.</p>
       <button class="btn" id="expBtn">⬇ Экспорт</button><button class="btn" id="impBtn">⬆ Импорт</button><input type="file" id="impFile" accept=".json,application/json" hidden></div>
     <div class="set-sec"><b>Импорт из браузера</b><p class="muted small" style="margin:4px 0 8px">Chrome, Edge, Яндекс, Firefox, Safari, Opera, а также Bitwarden, 1Password, KeePass — через CSV‑файл.</p>
@@ -268,6 +278,30 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
   <footer class="df"><span class="sp"></span><button class="btn" data-close id="csvClose">Отмена</button><button class="btn primary" id="csvGo" hidden>Импортировать</button></footer>
 </dialog>
 
+<dialog id="dlgSync">
+  <form id="syncForm" autocomplete="off">
+    <header class="dh"><h2>Синхронизация через GitHub</h2><button type="button" class="icon" data-close>✕</button></header>
+    <div class="dbody">
+      <p class="muted small" style="margin-top:0">Зашифрованная копия хранилища лежит в вашем <b>приватном</b> репозитории. GitHub видит только шифр — без мастер‑пароля его не прочитать. Нужно сделать один раз:</p>
+      <details><summary><b>1. Создайте приватный репозиторий</b></summary>
+        <p class="small">github.com → «+» справа вверху → <i>New repository</i> → имя, например <code>passwords-data</code> → обязательно <b>Private</b> → <i>Create repository</i>. Это отдельный репозиторий, не тот, где лежит сайт.</p></details>
+      <details><summary><b>2. Создайте токен доступа только к нему</b></summary>
+        <ol class="small" style="padding-left:18px">
+          <li>Откройте <code>github.com/settings/personal-access-tokens/new</code></li>
+          <li><i>Token name</i>: «Пароли»; <i>Expiration</i> — например, 1 год</li>
+          <li><i>Repository access</i> → <b>Only select repositories</b> → выберите <code>passwords-data</code></li>
+          <li><i>Permissions</i> → <i>Repository permissions</i> → <b>Contents</b> → <b>Read and write</b></li>
+          <li><i>Generate token</i> → скопируйте его (начинается с <code>github_pat_</code>)</li>
+        </ol></details>
+      <label class="field" style="margin-top:12px"><span>Репозиторий</span><input id="sRepo" placeholder="ваш-логин/passwords-data" required autocapitalize="off" spellcheck="false"></label>
+      <label class="field"><span>Токен</span><input id="sTok" type="password" placeholder="github_pat_…" required></label>
+      <p class="muted small">Токен хранится внутри зашифрованного хранилища. На втором устройстве нажмите на экране входа «У меня уже есть хранилище на другом устройстве».</p>
+      <p id="syncErr" class="err"></p>
+    </div>
+    <footer class="df"><span class="sp"></span><button type="button" class="btn" data-close>Отмена</button><button class="btn primary" id="syncGo">Подключить</button></footer>
+  </form>
+</dialog>
+
 <dialog id="dlgAsk">
   <form id="askForm">
     <header class="dh"><h2 id="askTitle"></h2></header>
@@ -288,7 +322,7 @@ dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
 const $ = s => document.querySelector(s);
 const VAULT_KEY = 'pv_vault_v1', PREF_KEY = 'pv_prefs_v1', ITER = 600000;
 const enc = new TextEncoder(), dec = new TextDecoder();
-const S = { key:null, salt:null, data:null, filter:'all', q:'', editId:null, last:Date.now(), clipT:null };
+const S = { key:null, salt:null, data:null, keys:new Map(), filter:'all', q:'', editId:null, last:Date.now(), clipT:null };
 
 /* ---------- storage helpers ---------- */
 const ls = {
@@ -313,14 +347,19 @@ async function seal(){
   const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, S.key, enc.encode(JSON.stringify(S.data))));
   return { app:'pv', v:1, kdf:'PBKDF2-SHA256', iter:ITER, salt:b64(S.salt), iv:b64(iv), ct:b64(ct) };
 }
+async function decryptWith(blob, key){
+  return JSON.parse(dec.decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:ub64(blob.iv)}, key, ub64(blob.ct))));
+}
 async function unseal(blob, pw){
   const salt = ub64(blob.salt), key = await deriveKey(pw, salt, blob.iter||ITER);
-  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:ub64(blob.iv)}, key, ub64(blob.ct));
-  return { key, salt, data: JSON.parse(dec.decode(pt)) };
+  const data = await decryptWith(blob, key);
+  S.keys.set(blob.salt, key);   // remembered for this session so synced copies open without re-asking
+  return { key, salt, data };
 }
-async function persist(){
+async function saveLocal(){
   if(!ls.set(VAULT_KEY, JSON.stringify(await seal()))) toast('⚠ Не удалось сохранить в браузере — сделайте экспорт');
 }
+async function persist(){ await saveLocal(); scheduleSync() }
 
 /* ---------- password tools ---------- */
 const SETS = { up:'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lo:'abcdefghijklmnopqrstuvwxyz', di:'0123456789', sy:'!@#$%^&*()-_=+[]{};:,.?/~' };
@@ -382,34 +421,67 @@ function showLock(){
   $('#app').hidden = true; $('#lock').hidden = false;
   document.querySelectorAll('dialog[open]').forEach(d => d.close());
   $('#lockForm').reset(); $('#lockErr').textContent = ''; meter($('#mpMeter'), $('#mpLabel'), '');
-  $('#mp2wrap').hidden = exists; $('#resetBtn').hidden = !exists;
-  $('#mp1').autocomplete = exists ? 'current-password' : 'new-password';
-  $('#lockSub').textContent = exists ? 'Введите мастер‑пароль, чтобы открыть хранилище' : 'Придумайте мастер‑пароль — им будут зашифрованы все записи';
-  $('#lockBtn').textContent = exists ? 'Открыть' : 'Создать хранилище';
+  S.connect = false; lockMode();
   setTimeout(() => $('#mp1').focus(), 50);
 }
+function lockMode(){
+  const exists = !!ls.get(VAULT_KEY), c = S.connect;
+  $('#mp2wrap').hidden = exists || c; $('#resetBtn').hidden = !exists; $('#connBtn').hidden = exists;
+  $('#connWrap').hidden = !c; $('#lockErr').textContent = '';
+  $('#mp1').autocomplete = exists || c ? 'current-password' : 'new-password';
+  $('#lockSub').textContent = exists ? 'Введите мастер‑пароль, чтобы открыть хранилище'
+    : c ? 'Введите данные синхронизации и мастер‑пароль с другого устройства'
+    : 'Придумайте мастер‑пароль — им будут зашифрованы все записи';
+  $('#lockBtn').textContent = exists ? 'Открыть' : c ? 'Подключить' : 'Создать хранилище';
+  $('#connBtn').textContent = c ? 'Нет, создать новое хранилище' : 'У меня уже есть хранилище на другом устройстве';
+}
+$('#connBtn').addEventListener('click', () => { S.connect = !S.connect; lockMode() });
 $('#mp1').addEventListener('input', e => { if(!$('#mp2wrap').hidden) meter($('#mpMeter'), $('#mpLabel'), e.target.value) });
 $('#lockForm').addEventListener('submit', async e => {
   e.preventDefault();
   const pw = $('#mp1').value, raw = ls.get(VAULT_KEY), err = $('#lockErr'), btn = $('#lockBtn');
   err.textContent = '';
-  if(!raw){
+  let cfg = null;
+  if(!raw && S.connect){
+    cfg = { repo: normRepo($('#cRepo').value), token: $('#cTok').value.trim() };
+    if(!cfg.repo) return err.textContent = 'Укажите репозиторий в виде логин/название';
+    if(!cfg.token) return err.textContent = 'Вставьте токен доступа';
+  } else if(!raw){
     if(pw.length < 8) return err.textContent = 'Минимум 8 символов';
     if(pw !== $('#mp2').value) return err.textContent = 'Пароли не совпадают';
   }
   btn.disabled = true; const txt = btn.textContent; btn.textContent = '…';
   try{
-    if(raw){ Object.assign(S, await unseal(JSON.parse(raw), pw)) }
-    else { S.salt = crypto.getRandomValues(new Uint8Array(16)); S.key = await deriveKey(pw, S.salt); S.data = {entries:[]}; await persist() }
+    if(cfg){
+      const remote = await ghLoad(cfg);
+      if(!remote) throw new Error('В этом репозитории ещё нет хранилища. Сначала включите синхронизацию на устройстве, где уже есть пароли.');
+      Object.assign(S, await unseal(remote.blob, pw));
+      S.data.sync = cfg; await saveLocal();
+    }
+    else if(raw){ Object.assign(S, await unseal(JSON.parse(raw), pw)) }
+    else {
+      S.salt = crypto.getRandomValues(new Uint8Array(16)); S.key = await deriveKey(pw, S.salt);
+      S.keys.set(b64(S.salt), S.key); S.data = {entries:[]}; await saveLocal();
+    }
     unlock();
-  }catch{ err.textContent = 'Неверный мастер‑пароль'; $('#mp1').select() }
+  }catch(ex){
+    err.textContent = ex instanceof DOMException ? 'Неверный мастер‑пароль' : ex instanceof TypeError ? 'Нет связи с GitHub — проверьте интернет' : ex.message;
+    $('#mp1').select();
+  }
   finally{ btn.disabled = false; btn.textContent = txt }
 });
 $('#resetBtn').addEventListener('click', () => {
   if(prompt('Все записи будут безвозвратно удалены.\nВведите УДАЛИТЬ для подтверждения:') === 'УДАЛИТЬ'){ ls.del(VAULT_KEY); showLock(); toast('Хранилище сброшено') }
 });
-function unlock(){ $('#lock').hidden = true; $('#app').hidden = false; S.last = Date.now(); render() }
-function lock(){ S.key = S.data = S.salt = null; $('#q').value = ''; S.q = ''; $('#list').innerHTML = $('#side').innerHTML = ''; showLock() }
+function unlock(){
+  $('#lock').hidden = true; $('#app').hidden = false; S.last = Date.now(); S.syncPaused = false;
+  render(); setSyncState(S.data.sync?.token ? 'ok' : 'off'); syncNow();
+}
+function lock(){
+  clearTimeout(syncTimer);
+  S.key = S.data = S.salt = null; S.keys.clear(); S.lastSync = 0;
+  $('#q').value = ''; S.q = ''; $('#list').innerHTML = $('#side').innerHTML = ''; showLock();
+}
 $('#lockNow').addEventListener('click', lock);
 
 /* auto-lock */
@@ -506,6 +578,7 @@ $('#delBtn').addEventListener('click', async () => {
   const it = S.data.entries.find(x => x.id === S.editId);
   if(!confirm(`Удалить «${it.title}»?`)) return;
   S.data.entries = S.data.entries.filter(x => x.id !== S.editId);
+  (S.data.deleted ||= {})[S.editId] = Date.now();
   await persist(); $('#dlgEdit').close(); render(); toast('Запись удалена');
 });
 $('#addBtn').addEventListener('click', () => openEdit(null));
@@ -641,14 +714,14 @@ $('#tNew').addEventListener('click', async e => {
   try{
     const user = `${pick(W1)}${pick(W2)}${randStr(6)}`;
     await gmSession(user, true);
-    (S.data.boxes ||= []).unshift({user, dom:GM_DOMAINS[0], created:Date.now()});
+    (S.data.boxes ||= []).unshift({user, dom:GM_DOMAINS[0], created:Date.now(), t:Date.now()});
     S.data.mail.box = user; closeMsg();
     await persist(); renderBoxes(); mailRegen(); toast('Ящик создан');
   }catch(err){ toast(navigator.onLine === false ? 'Нет интернета' : 'Сервис почты не отвечает, попробуйте ещё раз') }
   finally{ btn.disabled = false }
 });
 $('#tBox').addEventListener('change', e => { S.data.mail.box = e.target.value; closeMsg(); renderBoxes(); mailRegen() });
-$('#tDom').addEventListener('change', e => { curBox().dom = e.target.value; persist(); mailRegen() });
+$('#tDom').addEventListener('change', e => { Object.assign(curBox(), {dom:e.target.value, t:Date.now()}); persist(); mailRegen() });
 $('#tDel').addEventListener('click', async () => {
   const b = curBox();
   if(!b || !confirm(`Забыть ящик ${boxAddr(b)}?\nПисьма в нём станут недоступны из менеджера.`)) return;
@@ -656,6 +729,7 @@ $('#tDel').addEventListener('click', async () => {
   if(sid) gm({f:'forget_me', email_addr:boxAddr(b), sid_token:sid}).catch(() => {});
   gmSid.delete(b.user);
   S.data.boxes = S.data.boxes.filter(x => x !== b);
+  (S.data.deleted ||= {})['box:' + b.user] = Date.now();
   S.data.mail.box = S.data.boxes[0]?.user || '';
   closeMsg(); await persist(); renderBoxes(); mailRegen();
 });
@@ -686,6 +760,7 @@ function mailRegen(){
   if(temp) loadInbox();
 }
 ['#mMode','#mBase','#mTag','#mDom'].forEach(s => $(s).addEventListener('input', mailRegen));
+['#mMode','#mBase','#mDom'].forEach(s => $(s).addEventListener('input', () => S.data.mail.t = Date.now()));
 $('#mailRe').addEventListener('click', () => { if(S.data.mail.mode === 'temp'){ closeMsg(); loadInbox() } else mailRegen() });
 $('#mailCopy').addEventListener('click', () => copy($('#mailOut').textContent, 'Адрес'));
 $('#mailUse').addEventListener('click', () => {
@@ -702,8 +777,142 @@ $('#inlineMail').addEventListener('click', () => {
   openMail(F.elements.login, u ? host(u).split('.').slice(-2,-1)[0] || host(u) : F.elements.title.value);
 });
 
+/* ---------- sync via a private GitHub repo ----------
+   The repo holds vault.json — the same encrypted blob as local storage.
+   Merge is per record, newest `updated` wins; deletions are kept as tombstones. */
+const GH_API = 'https://api.github.com/';
+const normRepo = s => { s = (s||'').trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\.git$/i, '').replace(/\/+$/, ''); return /^[\w.-]+\/[\w.-]+$/.test(s) ? s : null };
+const ghMsg = s => ({ 401:'Токен недействителен или истёк — вставьте новый в ⚙️ → Синхронизация',
+  403:'Нет доступа: у токена должно быть право Contents — Read and write', 404:'Репозиторий не найден или токен не даёт к нему доступа' })[s] || `GitHub ответил ошибкой ${s}`;
+async function gh(cfg, path, opt = {}){
+  const r = await fetch(GH_API + path, { ...opt, cache:'no-store', headers:{ Authorization:'Bearer ' + cfg.token,
+    Accept:'application/vnd.github+json', ...(opt.body ? {'Content-Type':'application/json'} : {}) } });
+  if(!r.ok){ const e = new Error(ghMsg(r.status)); e.status = r.status; throw e }
+  return r.json();
+}
+const vaultPath = cfg => `repos/${cfg.repo}/contents/vault.json`;
+async function ghLoad(cfg){
+  try{ const f = await gh(cfg, vaultPath(cfg)); return { blob: JSON.parse(atob(f.content.replace(/\s/g, ''))), sha: f.sha } }
+  catch(e){
+    if(e.status !== 404) throw e;
+    await gh(cfg, 'repos/' + cfg.repo);   // throws if the repo itself is missing; otherwise the vault file simply doesn't exist yet
+    return null;
+  }
+}
+async function ghSave(cfg, blob, sha){
+  const body = { message:'Синхронизация ' + new Date().toISOString(), content: btoa(JSON.stringify(blob)) };
+  if(sha) body.sha = sha;
+  return gh(cfg, vaultPath(cfg), { method:'PUT', body: JSON.stringify(body) });
+}
+function mergeData(a, b){   // a = this device, b = cloud
+  const del = { ...(b.deleted || {}) };
+  for(const [k, t] of Object.entries(a.deleted || {})) del[k] = Math.max(del[k] || 0, t);
+  const cut = Date.now() - 365 * 864e5;
+  for(const k in del) if(del[k] < cut) delete del[k];
+  const stamp = x => x.updated || x.t || x.created || 0;
+  const newest = (list, key) => { const m = new Map(); for(const x of list){ const c = m.get(key(x)); if(!c || stamp(x) > stamp(c)) m.set(key(x), x) } return [...m.values()] };
+  const entries = newest([...(b.entries || []), ...(a.entries || [])], e => e.id).filter(e => !(del[e.id] >= stamp(e)));
+  const boxes = newest([...(b.boxes || []), ...(a.boxes || [])], x => x.user).filter(x => !(del['box:' + x.user] >= stamp(x))).sort((x, y) => y.created - x.created);
+  const mail = (a.mail?.t || 0) >= (b.mail?.t || 0) ? a.mail : { ...b.mail, box: a.mail?.box ?? b.mail?.box };
+  return { ...b, ...a, entries, boxes, mail, deleted: del, kt: Math.max(a.kt || 0, b.kt || 0), sync: a.sync };
+}
+const fp = d => JSON.stringify([ (d.entries || []).map(e => e.id + ':' + e.updated).sort(), Object.entries(d.deleted || {}).sort(),
+  (d.boxes || []).map(x => x.user + ':' + stamp0(x)).sort(), d.mail?.t || 0, d.kt || 0 ]);
+const stamp0 = x => x.t || x.created || 0;
+
+let syncTimer = null;
+function scheduleSync(){ if(!S.data?.sync?.token) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => syncNow(), 1500) }
+async function openRemote(blob, adopt){
+  const key = S.keys.get(blob.salt);
+  if(key) return { key, salt: ub64(blob.salt), data: await decryptWith(blob, key) };
+  return ask({ title:'Мастер‑пароль из облака',
+    text: adopt ? 'В репозитории уже есть хранилище. Введите его мастер‑пароль — записи объединятся, и дальше на этом устройстве будет действовать он.'
+                : 'Мастер‑пароль меняли на другом устройстве. Введите новый — записи объединятся, и дальше здесь будет действовать он.',
+    check: async pw => { try{ return await unseal(blob, pw) }catch{ throw 'Неверный пароль' } } });
+}
+async function syncNow(manual, adopt){
+  const cfg = S.data?.sync;
+  if(!cfg?.token || !S.key || (S.syncPaused && !manual)) return;
+  if(S.syncing){ S.syncAgain = true; return }
+  S.syncing = true; S.syncPaused = false; setSyncState('busy');
+  try{
+    for(let attempt = 0; ; attempt++){
+      const remote = await ghLoad(cfg);
+      if(!S.key) return;
+      if(remote){
+        const r = await openRemote(remote.blob, adopt);
+        if(!r){ S.syncPaused = true; throw new Error('Синхронизация на паузе — нужен мастер‑пароль из облака. Нажмите ☁️, чтобы ввести его.') }
+        if(!S.key) return;
+        const before = fp(S.data), keyChange = adopt || (r.data.kt || 0) > (S.data.kt || 0);
+        S.data = mergeData(S.data, r.data);
+        if(keyChange){ S.key = r.key; S.salt = r.salt; S.data.kt = Math.max(S.data.kt || 0, r.data.kt || 0) }
+        if(keyChange || fp(S.data) !== before){ await saveLocal(); render() }
+        adopt = false;
+        if(fp(S.data) === fp(r.data) && b64(S.salt) === remote.blob.salt) break;   // cloud already has everything
+      }
+      try{ await ghSave(cfg, await seal(), remote?.sha); break }
+      catch(e){ if((e.status === 409 || e.status === 422) && attempt < 3) continue; throw e }   // changed meanwhile → merge again
+    }
+    S.lastSync = Date.now(); setSyncState('ok');
+    if(manual) toast('Синхронизировано');
+  }catch(e){
+    const msg = e instanceof TypeError ? 'Нет связи с GitHub' : e instanceof DOMException ? 'Не удалось расшифровать копию в облаке' : e.message;
+    setSyncState('err', msg); if(manual) toast('⚠ ' + msg);
+  }finally{
+    S.syncing = false;
+    if(S.syncAgain){ S.syncAgain = false; scheduleSync() }
+  }
+}
+function setSyncState(state, msg){
+  S.syncState = state; S.syncMsg = msg || '';
+  const b = $('#syncBtn'), on = !!S.data?.sync?.token;
+  b.hidden = !on;
+  b.textContent = { busy:'🔄', err:'⚠️' }[state] || '☁️';
+  b.title = state === 'busy' ? 'Синхронизация…' : state === 'err' ? msg
+    : S.lastSync ? 'Синхронизировано в ' + new Date(S.lastSync).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : 'Синхронизация включена';
+  renderSyncSettings();
+}
+function renderSyncSettings(){
+  const cfg = S.data?.sync, on = !!cfg?.token;
+  $('#syncOff').hidden = on; $('#syncOn').hidden = !on;
+  $('#syncInfo').innerHTML = !on ? 'Пароли будут сами появляться на телефоне и компьютере. Нужен бесплатный приватный репозиторий на GitHub.'
+    : `Подключено: <b>${esc(cfg.repo)}</b><br>` + (S.syncState === 'err' ? `<span style="color:var(--danger)">⚠ ${esc(S.syncMsg)}</span>`
+    : S.syncState === 'busy' ? 'Синхронизация…' : S.lastSync ? 'Последняя синхронизация: ' + fmtDate(S.lastSync) : 'Ожидает синхронизации');
+}
+$('#syncBtn').addEventListener('click', () => syncNow(true));
+$('#syncNowBtn').addEventListener('click', () => syncNow(true));
+function openSyncSetup(){
+  const cfg = S.data.sync || {};
+  $('#sRepo').value = cfg.repo || ''; $('#sTok').value = ''; $('#syncErr').textContent = '';
+  $('#dlgSync').querySelectorAll('details').forEach(d => d.open = !cfg.repo);
+  $('#dlgSet').close(); $('#dlgSync').showModal();
+}
+$('#syncSetup').addEventListener('click', openSyncSetup);
+$('#syncEdit').addEventListener('click', openSyncSetup);
+$('#syncForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const cfg = { repo: normRepo($('#sRepo').value), token: $('#sTok').value.trim() }, err = $('#syncErr'), btn = $('#syncGo');
+  if(!cfg.repo) return err.textContent = 'Укажите репозиторий в виде логин/название';
+  btn.disabled = true; err.textContent = '';
+  try{
+    const info = await gh(cfg, 'repos/' + cfg.repo);
+    if(!info.private) throw new Error('Этот репозиторий публичный — файлы в нём видны всем. Создайте отдельный репозиторий с пометкой Private.');
+    if(info.permissions && !info.permissions.push) throw new Error('У токена нет права записи: нужно Contents — Read and write');
+    const first = !S.data.sync?.token;
+    S.data.sync = cfg; await saveLocal();
+    $('#dlgSync').close(); setSyncState('ok');
+    await syncNow(true, first);
+  }catch(ex){ err.textContent = ex instanceof TypeError ? 'Нет связи с GitHub — проверьте интернет' : ex.message }
+  finally{ btn.disabled = false }
+});
+$('#syncOffBtn').addEventListener('click', async () => {
+  if(!confirm('Отключить синхронизацию на этом устройстве?\nЗаписи останутся здесь, копия в репозитории тоже останется.')) return;
+  S.data.sync = null; await saveLocal(); setSyncState('off');
+});
+document.addEventListener('visibilitychange', () => { if(!document.hidden && S.key && Date.now() - (S.lastSync || 0) > 30000) syncNow() });
+
 /* ---------- settings ---------- */
-$('#setBtn').addEventListener('click', () => { $('#sTheme').value = prefs.theme; $('#sLock').value = prefs.lock; $('#dlgSet').showModal() });
+$('#setBtn').addEventListener('click', () => { $('#sTheme').value = prefs.theme; $('#sLock').value = prefs.lock; renderSyncSettings(); $('#dlgSet').showModal() });
 $('#sTheme').addEventListener('change', e => { prefs.theme = e.target.value; savePrefs(); applyTheme() });
 $('#sLock').addEventListener('change', e => { prefs.lock = +e.target.value; savePrefs() });
 $('#expBtn').addEventListener('click', async () => {
@@ -727,6 +936,7 @@ $('#chgBtn').addEventListener('click', async () => {
     check: async pw => { if(pw.length < 8) throw 'Минимум 8 символов'; return pw } });
   if(!pw) return;
   S.salt = crypto.getRandomValues(new Uint8Array(16)); S.key = await deriveKey(pw, S.salt);
+  S.keys.set(b64(S.salt), S.key); S.data.kt = Date.now();   // kt tells other devices to adopt the new password
   await persist(); toast('Мастер‑пароль изменён');
 });
 

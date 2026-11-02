@@ -1,6 +1,6 @@
 // Keeps the app working offline. Only same-origin files are cached;
 // requests to the temp-mail service always go to the network.
-const CACHE = 'pv-v1';
+const CACHE = 'pv-v2';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
