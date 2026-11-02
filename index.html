@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Хранилище паролей</title>
+<meta name="theme-color" content="#4f46e5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+:root{--bg:#f4f5f8;--panel:#fff;--panel-2:#f9fafb;--text:#1b1f2a;--muted:#6b7280;--border:#e3e6ec;--accent:#4f46e5;--accent-text:#fff;--accent-soft:#eef0ff;--danger:#dc2626;--ok:#16a34a;--warn:#d97706;--shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(0,0,0,.06);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1117;--panel:#181b24;--panel-2:#1e2230;--text:#e7e9ee;--muted:#9aa1ad;--border:#2a2f3b;--accent:#818cf8;--accent-text:#0f1117;--accent-soft:#23264a;--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1117;--panel:#181b24;--panel-2:#1e2230;--text:#e7e9ee;--muted:#9aa1ad;--border:#2a2f3b;--accent:#818cf8;--accent-text:#0f1117;--accent-soft:#23264a;--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,textarea,select{font:inherit;color:inherit}
+input,textarea,select{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:9px;background:var(--panel-2);outline:none}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea{resize:vertical}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:9px;background:var(--panel);cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent);font-weight:600}
+.btn.danger{color:var(--danger)}
+.btn.wide{width:100%;justify-content:center;padding:11px}
+.icon{border:0;background:transparent;cursor:pointer;padding:6px 8px;border-radius:8px;font-size:16px;line-height:1;color:var(--muted)}
+.icon:hover{background:var(--accent-soft);color:var(--text)}
+.link{border:0;background:none;color:var(--muted);cursor:pointer;text-decoration:underline;font-size:13px;margin-top:10px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.err{color:var(--danger);min-height:1.2em;margin:6px 0;font-size:14px}
+.field{display:block;margin:0 0 12px}.field>span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.pw{display:flex;align-items:center;gap:2px;border:1px solid var(--border);border-radius:9px;background:var(--panel-2);padding-right:4px}
+.pw:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.pw input{border:0;background:transparent;box-shadow:none!important}
+.mono{font-family:ui-monospace,Consolas,monospace}
+.meter{height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin:2px 0 4px}
+.meter i{display:block;height:100%;width:0;transition:width .2s,background .2s}
+.check{display:flex;align-items:center;gap:8px;cursor:pointer;margin:6px 0}.check input{width:auto}
+/* lock */
+.lock{min-height:100%;display:grid;place-items:center;padding:16px}
+.lock-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;box-shadow:var(--shadow);text-align:center}
+.lock-card .field{text-align:left}
+.logo{font-size:40px}.lock-card h1{margin:6px 0 4px;font-size:22px}
+.note{font-size:12px;color:var(--muted);margin:16px 0 0}
+/* app */
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+.brand{font-size:17px;white-space:nowrap;margin-right:6px}
+.search{flex:1;min-width:0}
+.body{display:flex;max-width:1280px;margin:0 auto}
+.side{width:220px;flex-shrink:0;padding:16px 10px;position:sticky;top:57px;align-self:flex-start;max-height:calc(100vh - 57px);overflow:auto}
+.side h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:16px 10px 6px}
+.side button{display:flex;width:100%;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;border:0;border-radius:8px;background:none;cursor:pointer;text-align:left}
+.side button:hover{background:var(--accent-soft)}
+.side button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.side .n{font-size:12px;color:var(--muted)}
+.side .bad .n{color:var(--danger);font-weight:600}
+main{flex:1;min-width:0;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;gap:12px;align-items:center;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.av{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-weight:700;color:#fff;flex-shrink:0;font-size:17px}
+.ci{flex:1;min-width:0}
+.ct{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;gap:4px;margin-top:3px;flex-wrap:wrap}
+.tag{font-size:11px;padding:1px 6px;border-radius:5px;background:var(--panel-2);border:1px solid var(--border);color:var(--muted)}
+.tag.w{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 40%,transparent)}
+.ca{display:flex;flex-shrink:0}
+.empty{text-align:center;color:var(--muted);padding:60px 16px}
+.empty .big{font-size:44px}
+/* dialogs */
+dialog{border:1px solid var(--border);border-radius:16px;padding:0;background:var(--panel);color:var(--text);width:min(480px,calc(100% - 32px));box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(10,12,20,.5);backdrop-filter:blur(2px)}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border)}
+.dh h2{margin:0;font-size:17px}
+.dbody{padding:16px 18px;max-height:70vh;overflow:auto}
+.df{display:flex;gap:8px;padding:12px 18px;border-top:1px solid var(--border);align-items:center}
+.sp{flex:1}
+.genout{display:flex;align-items:center;gap:4px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:6px}
+.genout code{flex:1;word-break:break-all;font-size:17px;font-family:ui-monospace,Consolas,monospace}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:10px 0}
+.row input[type=range]{flex:1;padding:0;accent-color:var(--accent)}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px}
+.set-sec{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+.set-sec:first-child{border:0;padding:0;margin:0}
+.set-sec .btn{margin:4px 6px 4px 0}
+.trow{display:flex;align-items:center;gap:8px;margin:8px 0}
+.trow select{flex:1;min-width:0}
+.inbox{border:1px solid var(--border);border-radius:10px;max-height:260px;overflow:auto;background:var(--panel-2)}
+.inbox .msg{padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer}
+.inbox .msg:last-child{border-bottom:0}
+.inbox .msg:hover{background:var(--accent-soft)}
+.inbox .msg b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inbox .msg .x{font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox p{margin:0;padding:18px 12px;text-align:center}
+#tFrame{width:100%;height:340px;border:1px solid var(--border);border-radius:10px;background:#fff}
+#dlgMail{width:min(560px,calc(100% - 32px))}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;max-width:calc(100% - 32px);z-index:50}
+#toast.show{opacity:1;transform:translateX(-50%)}
+@media (max-width:760px){
+  .body{flex-direction:column}
+  .side{width:100%;position:static;max-height:none;display:flex;gap:6px;overflow-x:auto;padding:12px 16px 0}
+  .side h4{display:none}
+  .side button{width:auto;white-space:nowrap;border:1px solid var(--border);background:var(--panel)}
+  .hide-sm,.brand b{display:none}
+  .top{padding:10px 12px;gap:6px;flex-wrap:wrap}
+  .brand{flex:1}
+  .search{order:10;flex-basis:100%}
+  input,textarea,select{font-size:16px}
+  .grid{grid-template-columns:1fr}
+  main{padding:12px 16px}
+}
+</style>
+</head>
+<body>
+
+<section id="lock" class="lock">
+  <form id="lockForm" class="lock-card" autocomplete="off">
+    <div class="logo">🔐</div>
+    <h1 id="lockTitle">Хранилище паролей</h1>
+    <p id="lockSub" class="muted"></p>
+    <label class="field"><span>Мастер-пароль</span>
+      <div class="pw"><input id="mp1" type="password" required autofocus><button type="button" class="icon" data-toggle="mp1" title="Показать">👁</button></div>
+    </label>
+    <div id="mp2wrap">
+      <label class="field"><span>Повторите мастер-пароль</span><input id="mp2" type="password"></label>
+      <div class="meter"><i id="mpMeter"></i></div><small id="mpLabel" class="muted"></small>
+    </div>
+    <p id="lockErr" class="err"></p>
+    <button class="btn primary wide" id="lockBtn">Открыть</button>
+    <button type="button" id="resetBtn" class="link">Забыли пароль? Сбросить хранилище</button>
+    <p class="note">Данные шифруются AES‑256 прямо в браузере и никуда не отправляются. Мастер‑пароль восстановить нельзя — запомните его.</p>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="top">
+    <div class="brand">🔐 <b>Пароли</b></div>
+    <div class="search"><input id="q" type="search" placeholder="Поиск…   ( / )"></div>
+    <button class="btn" id="genBtn" title="Генератор паролей">🎲 <span class="hide-sm">Генератор</span></button>
+    <button class="btn" id="mailBtn" title="Генератор почты">✉ <span class="hide-sm">Почта</span></button>
+    <button class="btn primary" id="addBtn" title="Новая запись (N)">＋ <span class="hide-sm">Добавить</span></button>
+    <button class="icon" id="setBtn" title="Настройки">⚙️</button>
+    <button class="icon" id="lockNow" title="Заблокировать (L)">🔒</button>
+  </header>
+  <div class="body">
+    <nav id="side" class="side"></nav>
+    <main><div id="list" class="grid"></div><div id="empty" class="empty" hidden></div></main>
+  </div>
+</div>
+
+<dialog id="dlgEdit">
+  <form id="editForm" autocomplete="off">
+    <header class="dh"><h2 id="editTitle">Новая запись</h2><button type="button" class="icon" data-close>✕</button></header>
+    <div class="dbody">
+      <label class="field"><span>Название</span><input name="title" required placeholder="Например, Gmail"></label>
+      <label class="field"><span>Логин / email</span>
+        <div class="pw"><input name="login"><button type="button" class="icon" id="inlineMail" title="Сгенерировать почту">✉</button><button type="button" class="icon" data-copyf="login" title="Копировать">⧉</button></div></label>
+      <label class="field"><span>Пароль</span>
+        <div class="pw"><input name="password" id="edPw" type="password" class="mono">
+          <button type="button" class="icon" data-toggle="edPw" title="Показать">👁</button>
+          <button type="button" class="icon" id="inlineGen" title="Сгенерировать">🎲</button>
+          <button type="button" class="icon" data-copyf="password" title="Копировать">⧉</button></div></label>
+      <div class="meter"><i id="edMeter"></i></div><small id="edLabel" class="muted"></small>
+      <label class="field" style="margin-top:10px"><span>Сайт</span><input name="url" placeholder="example.com"></label>
+      <label class="field"><span>Папка</span><input name="cat" list="cats" placeholder="Работа, Соцсети, Банки…"><datalist id="cats"></datalist></label>
+      <label class="field"><span>Заметки</span><textarea name="notes" rows="3"></textarea></label>
+      <label class="check"><input type="checkbox" name="fav"> ★ Избранное</label>
+      <p id="edMeta" class="muted small"></p>
+    </div>
+    <footer class="df"><button type="button" class="btn danger" id="delBtn">Удалить</button><span class="sp"></span>
+      <button type="button" class="btn" data-close>Отмена</button><button class="btn primary">Сохранить</button></footer>
+  </form>
+</dialog>
+
+<dialog id="dlgGen">
+  <header class="dh"><h2>Генератор паролей</h2><button type="button" class="icon" data-close>✕</button></header>
+  <div class="dbody">
+    <div class="genout"><code id="genOut"></code><button class="icon" id="genRe" title="Ещё">↻</button><button class="icon" id="genCopy" title="Копировать">⧉</button></div>
+    <div class="meter"><i id="genMeter"></i></div><small id="genLabel" class="muted"></small>
+    <div class="row"><span>Длина</span><input type="range" id="gLen" min="6" max="64"><b id="gLenV" style="width:2ch;text-align:right"></b></div>
+    <div class="opts">
+      <label class="check"><input type="checkbox" id="gUp"> A–Z</label>
+      <label class="check"><input type="checkbox" id="gLo"> a–z</label>
+      <label class="check"><input type="checkbox" id="gDi"> 0–9</label>
+      <label class="check"><input type="checkbox" id="gSy"> !@#$%</label>
+      <label class="check" style="grid-column:1/-1"><input type="checkbox" id="gSim"> Без похожих символов (l, 1, I, O, 0)</label>
+    </div>
+  </div>
+  <footer class="df"><span class="sp"></span><button class="btn" data-close>Закрыть</button><button class="btn primary" id="genUse" hidden>Использовать</button></footer>
+</dialog>
+
+<dialog id="dlgMail">
+  <header class="dh"><h2>Генератор почты</h2><button type="button" class="icon" data-close>✕</button></header>
+  <div class="dbody">
+    <div class="genout"><code id="mailOut"></code><button class="icon" id="mailRe" title="Ещё">↻</button><button class="icon" id="mailCopy" title="Копировать">⧉</button></div>
+    <small id="mailHint" class="muted"></small>
+    <div class="field" style="margin-top:12px"><span class="muted small">Тип адреса</span>
+      <select id="mMode">
+        <option value="temp">Одноразовая почта (Guerrilla Mail)</option>
+        <option value="plus">Алиас с меткой: имя+сайт@домен</option>
+        <option value="dots">Вариант с точками (только Gmail)</option>
+        <option value="random">Случайный адрес на своём домене</option>
+      </select></div>
+    <label class="field" id="mBaseWrap"><span>Ваша основная почта</span><input id="mBase" type="email" placeholder="you@gmail.com"></label>
+    <label class="field" id="mTagWrap"><span>Метка (обычно имя сайта)</span><input id="mTag" placeholder="netflix"></label>
+    <label class="field" id="mDomWrap"><span>Домен</span><input id="mDom" placeholder="mydomain.com"></label>
+    <div id="tempWrap">
+      <div class="trow"><select id="tBox" title="Ваши одноразовые ящики"></select><button class="btn" id="tNew">＋ Новый ящик</button></div>
+      <div class="trow"><span class="muted small">Домен</span><select id="tDom" title="Если сайт не принимает адрес — смените домен, ящик тот же"></select><button class="icon" id="tDel" title="Забыть этот ящик">🗑</button></div>
+      <div class="trow" style="margin-top:12px"><b>Входящие</b><span class="sp"></span><span class="muted small" id="tStat"></span></div>
+      <div id="tInbox" class="inbox"></div>
+      <div id="tMsg" hidden>
+        <div class="trow"><button class="btn" id="tBack">← Назад</button><span class="sp"></span><button class="btn primary" id="tCode" hidden></button></div>
+        <div class="small muted" id="tMeta" style="margin:6px 0"></div>
+        <iframe id="tFrame" sandbox="allow-popups allow-popups-to-escape-sandbox" title="Письмо"></iframe>
+      </div>
+    </div>
+  </div>
+  <footer class="df"><span class="sp"></span><button class="btn" data-close>Закрыть</button><button class="btn primary" id="mailUse" hidden>Использовать</button></footer>
+</dialog>
+
+<dialog id="dlgSet">
+  <header class="dh"><h2>Настройки</h2><button type="button" class="icon" data-close>✕</button></header>
+  <div class="dbody">
+    <div class="set-sec"><label class="field"><span>Тема</span>
+      <select id="sTheme"><option value="">Как в системе</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label>
+      <label class="field"><span>Автоблокировка при бездействии</span>
+      <select id="sLock"><option value="1">1 минута</option><option value="5">5 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="0">Никогда</option></select></label></div>
+    <div class="set-sec"><b>Резервная копия</b><p class="muted small" style="margin:4px 0 8px">Файл зашифрован вашим мастер‑паролем. Храните копию отдельно — при очистке данных браузера хранилище пропадёт.</p>
+      <button class="btn" id="expBtn">⬇ Экспорт</button><button class="btn" id="impBtn">⬆ Импорт</button><input type="file" id="impFile" accept=".json,application/json" hidden></div>
+    <div class="set-sec"><b>Импорт из браузера</b><p class="muted small" style="margin:4px 0 8px">Chrome, Edge, Яндекс, Firefox, Safari, Opera, а также Bitwarden, 1Password, KeePass — через CSV‑файл.</p>
+      <button class="btn" data-csv>📥 Импорт паролей из браузера</button></div>
+    <div class="set-sec" id="installSec" hidden><b>Приложение</b><br><button class="btn" id="installBtn">📲 Установить на это устройство</button></div>
+    <div class="set-sec"><b>Безопасность</b><br><button class="btn" id="chgBtn">🔑 Сменить мастер‑пароль</button></div>
+  </div>
+</dialog>
+
+<dialog id="dlgCsv">
+  <header class="dh"><h2>Импорт из браузера</h2><button type="button" class="icon" data-close>✕</button></header>
+  <div class="dbody">
+    <div id="csvStep1">
+      <p style="margin-top:0">1. Сохраните пароли из браузера в CSV‑файл:</p>
+      <details open><summary><b>Chrome, Яндекс, Opera</b></summary><p class="small">Откройте адрес <code>chrome://password-manager/settings</code> (в Яндексе — <code>browser://passwords</code>, в Opera — <code>opera://password-manager/settings</code>) → «Экспорт паролей» → «Скачать файл».</p></details>
+      <details><summary><b>Edge</b></summary><p class="small">Откройте <code>edge://wallet/passwords</code> → «⋯» (Настройки) → «Экспорт паролей».</p></details>
+      <details><summary><b>Firefox</b></summary><p class="small">Откройте <code>about:logins</code> → «⋯» справа вверху → «Экспортировать пароли».</p></details>
+      <details><summary><b>Safari (Mac)</b></summary><p class="small">Меню «Файл» → «Экспортировать» → «Пароли» или приложение «Пароли» → «Файл» → «Экспортировать все пароли».</p></details>
+      <details><summary><b>Bitwarden, 1Password, KeePass</b></summary><p class="small">Экспорт в формате CSV (не JSON и не зашифрованный).</p></details>
+      <p>2. Выберите этот файл:</p>
+      <button class="btn primary" id="csvPick">📂 Выбрать CSV‑файл</button>
+      <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+      <p id="csvErr" class="err"></p>
+    </div>
+    <div id="csvStep2" hidden>
+      <p id="csvSum" style="margin-top:0"></p>
+      <div id="csvList" class="inbox" style="max-height:220px"></div>
+      <label class="check" style="margin-top:12px"><input type="checkbox" id="csvUpd" checked> Обновить пароль, если такой логин для сайта уже есть</label>
+      <label class="check"><input type="checkbox" id="csvFolder"> Сложить в папку «Из браузера»</label>
+    </div>
+    <div id="csvStep3" hidden>
+      <p style="margin-top:0;font-size:17px">✅ <b id="csvDone"></b></p>
+      <p class="err" style="min-height:0">⚠ Удалите CSV‑файл с компьютера и из корзины — в нём пароли лежат открытым текстом.</p>
+      <p class="muted small">Удалять пароли из самого браузера не обязательно. Если перестанете им пользоваться — отключите там автосохранение паролей.</p>
+    </div>
+  </div>
+  <footer class="df"><span class="sp"></span><button class="btn" data-close id="csvClose">Отмена</button><button class="btn primary" id="csvGo" hidden>Импортировать</button></footer>
+</dialog>
+
+<dialog id="dlgAsk">
+  <form id="askForm">
+    <header class="dh"><h2 id="askTitle"></h2></header>
+    <div class="dbody">
+      <p id="askText" class="muted small" style="margin-top:0"></p>
+      <label class="field"><span>Пароль</span><input id="ask1" type="password" required></label>
+      <label class="field" id="ask2wrap"><span>Повторите</span><input id="ask2" type="password"></label>
+      <p id="askErr" class="err"></p>
+    </div>
+    <footer class="df"><span class="sp"></span><button type="button" class="btn" id="askCancel">Отмена</button><button class="btn primary">OK</button></footer>
+  </form>
+</dialog>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const VAULT_KEY = 'pv_vault_v1', PREF_KEY = 'pv_prefs_v1', ITER = 600000;
+const enc = new TextEncoder(), dec = new TextDecoder();
+const S = { key:null, salt:null, data:null, filter:'all', q:'', editId:null, last:Date.now(), clipT:null };
+
+/* ---------- storage helpers ---------- */
+const ls = {
+  get(k){ try{ return localStorage.getItem(k) }catch{ return null } },
+  set(k,v){ try{ localStorage.setItem(k,v); return true }catch{ return false } },
+  del(k){ try{ localStorage.removeItem(k) }catch{} }
+};
+const prefs = Object.assign({ theme:'', lock:5, gen:{len:20,up:true,lo:true,di:true,sy:true,sim:false} }, JSON.parse(ls.get(PREF_KEY)||'{}'));
+const savePrefs = () => ls.set(PREF_KEY, JSON.stringify(prefs));
+const applyTheme = () => prefs.theme ? document.documentElement.dataset.theme = prefs.theme : delete document.documentElement.dataset.theme;
+applyTheme();
+
+/* ---------- crypto ---------- */
+function b64(u){ let s=''; for(let i=0;i<u.length;i+=0x8000) s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000)); return btoa(s) }
+const ub64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function deriveKey(pw, salt, iter=ITER){
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function seal(){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, S.key, enc.encode(JSON.stringify(S.data))));
+  return { app:'pv', v:1, kdf:'PBKDF2-SHA256', iter:ITER, salt:b64(S.salt), iv:b64(iv), ct:b64(ct) };
+}
+async function unseal(blob, pw){
+  const salt = ub64(blob.salt), key = await deriveKey(pw, salt, blob.iter||ITER);
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:ub64(blob.iv)}, key, ub64(blob.ct));
+  return { key, salt, data: JSON.parse(dec.decode(pt)) };
+}
+async function persist(){
+  if(!ls.set(VAULT_KEY, JSON.stringify(await seal()))) toast('⚠ Не удалось сохранить в браузере — сделайте экспорт');
+}
+
+/* ---------- password tools ---------- */
+const SETS = { up:'ABCDEFGHIJKLMNOPQRSTUVWXYZ', lo:'abcdefghijklmnopqrstuvwxyz', di:'0123456789', sy:'!@#$%^&*()-_=+[]{};:,.?/~' };
+function rnd(n){ const lim = Math.floor(0x100000000 / n) * n, a = new Uint32Array(1); do crypto.getRandomValues(a); while(a[0] >= lim); return a[0] % n }
+function generate(o){
+  const strip = s => o.sim ? s.replace(/[lI1O0o|]/g,'') : s;
+  const pools = ['up','lo','di','sy'].filter(k => o[k]).map(k => strip(SETS[k]));
+  if(!pools.length) return '';
+  const all = pools.join(''), out = pools.map(p => p[rnd(p.length)]);
+  while(out.length < o.len) out.push(all[rnd(all.length)]);
+  for(let i=out.length-1;i>0;i--){ const j=rnd(i+1); [out[i],out[j]]=[out[j],out[i]] }
+  return out.slice(0, o.len).join('');
+}
+const COMMON = ['password','passw0rd','qwerty','123456','12345678','111111','abc123','letmein','admin','welcome','iloveyou','monkey','dragon','йцукен','пароль','qwe123'];
+function strength(p){
+  if(!p) return {score:0, label:''};
+  let pool = 0;
+  if(/[a-z]/.test(p)) pool+=26; if(/[A-Z]/.test(p)) pool+=26; if(/\d/.test(p)) pool+=10;
+  if(/[^a-zA-Z0-9]/.test(p)) pool+=33;
+  let bits = Math.log2(pool) * Math.min(p.length, new Set(p).size * 2);
+  const low = p.toLowerCase();
+  if(COMMON.some(c => low.includes(c))) bits = Math.min(bits, 20);
+  if(/^(\d+|[a-z]+)$/i.test(p) && p.length < 10) bits = Math.min(bits, 30);
+  const score = bits < 28 ? 1 : bits < 45 ? 2 : bits < 60 ? 3 : bits < 80 ? 4 : 5;
+  return { score, bits:Math.round(bits), label:['','Очень слабый','Слабый','Средний','Надёжный','Отличный'][score] };
+}
+const COLORS = ['','var(--danger)','#f97316','var(--warn)','#65a30d','var(--ok)'];
+function meter(bar, lbl, p){
+  const s = strength(p);
+  bar.style.width = s.score*20 + '%'; bar.style.background = COLORS[s.score];
+  lbl.textContent = s.score ? `${s.label} · ~${s.bits} бит` : '';
+}
+
+/* ---------- ui helpers ---------- */
+const esc = s => String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2600) }
+async function copy(text, what){
+  if(!text) return toast('Пусто — нечего копировать');
+  try{ await navigator.clipboard.writeText(text) }
+  catch{ const t=document.createElement('textarea'); t.value=text; document.body.append(t); t.select(); document.execCommand('copy'); t.remove() }
+  toast(`${what} скопирован · буфер очистится через 30 с`);
+  clearTimeout(S.clipT);
+  S.clipT = setTimeout(() => navigator.clipboard?.writeText('').catch(()=>{}), 30000);
+}
+const hue = s => [...(s||'?')].reduce((h,c)=>(h*31+c.charCodeAt(0))%360, 7);
+const normUrl = u => !u ? '' : /^[a-z]+:\/\//i.test(u) ? u : 'https://' + u;
+const host = u => { try{ return new URL(normUrl(u)).hostname.replace(/^www\./,'') }catch{ return u } };
+const fmtDate = t => t ? new Date(t).toLocaleString('ru-RU',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+document.addEventListener('click', e => {
+  const tg = e.target.closest('[data-toggle]');
+  if(tg){ const i=document.getElementById(tg.dataset.toggle); i.type = i.type==='password' ? 'text' : 'password' }
+  const cl = e.target.closest('[data-close]');
+  if(cl) cl.closest('dialog').close();
+});
+
+/* ---------- lock screen ---------- */
+function showLock(){
+  const exists = !!ls.get(VAULT_KEY);
+  $('#app').hidden = true; $('#lock').hidden = false;
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  $('#lockForm').reset(); $('#lockErr').textContent = ''; meter($('#mpMeter'), $('#mpLabel'), '');
+  $('#mp2wrap').hidden = exists; $('#resetBtn').hidden = !exists;
+  $('#mp1').autocomplete = exists ? 'current-password' : 'new-password';
+  $('#lockSub').textContent = exists ? 'Введите мастер‑пароль, чтобы открыть хранилище' : 'Придумайте мастер‑пароль — им будут зашифрованы все записи';
+  $('#lockBtn').textContent = exists ? 'Открыть' : 'Создать хранилище';
+  setTimeout(() => $('#mp1').focus(), 50);
+}
+$('#mp1').addEventListener('input', e => { if(!$('#mp2wrap').hidden) meter($('#mpMeter'), $('#mpLabel'), e.target.value) });
+$('#lockForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pw = $('#mp1').value, raw = ls.get(VAULT_KEY), err = $('#lockErr'), btn = $('#lockBtn');
+  err.textContent = '';
+  if(!raw){
+    if(pw.length < 8) return err.textContent = 'Минимум 8 символов';
+    if(pw !== $('#mp2').value) return err.textContent = 'Пароли не совпадают';
+  }
+  btn.disabled = true; const txt = btn.textContent; btn.textContent = '…';
+  try{
+    if(raw){ Object.assign(S, await unseal(JSON.parse(raw), pw)) }
+    else { S.salt = crypto.getRandomValues(new Uint8Array(16)); S.key = await deriveKey(pw, S.salt); S.data = {entries:[]}; await persist() }
+    unlock();
+  }catch{ err.textContent = 'Неверный мастер‑пароль'; $('#mp1').select() }
+  finally{ btn.disabled = false; btn.textContent = txt }
+});
+$('#resetBtn').addEventListener('click', () => {
+  if(prompt('Все записи будут безвозвратно удалены.\nВведите УДАЛИТЬ для подтверждения:') === 'УДАЛИТЬ'){ ls.del(VAULT_KEY); showLock(); toast('Хранилище сброшено') }
+});
+function unlock(){ $('#lock').hidden = true; $('#app').hidden = false; S.last = Date.now(); render() }
+function lock(){ S.key = S.data = S.salt = null; $('#q').value = ''; S.q = ''; $('#list').innerHTML = $('#side').innerHTML = ''; showLock() }
+$('#lockNow').addEventListener('click', lock);
+
+/* auto-lock */
+['mousemove','keydown','click','touchstart','scroll'].forEach(ev => addEventListener(ev, () => S.last = Date.now(), {passive:true}));
+setInterval(() => { if(S.key && +prefs.lock && Date.now() - S.last > prefs.lock*60000){ lock(); toast('Хранилище заблокировано из‑за бездействия') } }, 10000);
+
+/* ---------- main view ---------- */
+function analyze(){
+  const counts = {}; S.data.entries.forEach(e => { if(e.password) counts[e.password] = (counts[e.password]||0) + 1 });
+  return e => ({ weak: !!e.password && strength(e.password).score <= 2, reused: !!e.password && counts[e.password] > 1 });
+}
+function render(){
+  const E = S.data.entries, flags = analyze();
+  const cats = [...new Set(E.map(e => e.cat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ru'));
+  const cnt = f => E.filter(f).length;
+  const weakN = cnt(e => flags(e).weak), reN = cnt(e => flags(e).reused);
+  if(S.filter.startsWith('cat:') && !cats.includes(S.filter.slice(4))) S.filter = 'all';
+  const item = (id, label, n, cls='') => `<button data-f="${esc(id)}" class="${S.filter===id?'on':''} ${cls}"><span>${label}</span><span class="n">${n}</span></button>`;
+  $('#side').innerHTML =
+    item('all','🗂 Все записи',E.length) + item('fav','★ Избранное',cnt(e=>e.fav)) +
+    (cats.length ? '<h4>Папки</h4>' + cats.map(c => item('cat:'+c, '📁 '+esc(c), cnt(e=>e.cat===c))).join('') : '') +
+    '<h4>Проверка</h4>' + item('weak','⚠ Слабые',weakN, weakN?'bad':'') + item('reused','♻ Повторяются',reN, reN?'bad':'');
+  $('#cats').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
+
+  const q = S.q.trim().toLowerCase();
+  const list = E.filter(e => {
+    const f = S.filter;
+    if(f==='fav' && !e.fav) return false;
+    if(f==='weak' && !flags(e).weak) return false;
+    if(f==='reused' && !flags(e).reused) return false;
+    if(f.startsWith('cat:') && e.cat !== f.slice(4)) return false;
+    return !q || [e.title,e.login,e.url,e.cat,e.notes].some(v => (v||'').toLowerCase().includes(q));
+  }).sort((a,b) => (b.fav-a.fav) || a.title.localeCompare(b.title,'ru'));
+
+  $('#list').innerHTML = list.map(e => {
+    const fl = flags(e), h = hue(e.title);
+    return `<div class="card" data-id="${e.id}">
+      <div class="av" style="background:hsl(${h} 55% 52%)">${esc((e.title||'?')[0].toUpperCase())}</div>
+      <div class="ci"><div class="ct">${e.fav?'★ ':''}${esc(e.title)}</div>
+        <div class="cl">${esc(e.login || host(e.url) || 'без логина')}</div>
+        <div class="tags">${e.cat?`<span class="tag">${esc(e.cat)}</span>`:''}${fl.weak?'<span class="tag w">слабый</span>':''}${fl.reused?'<span class="tag w">повтор</span>':''}</div></div>
+      <div class="ca">
+        ${e.login?'<button class="icon" data-a="login" title="Копировать логин">👤</button>':''}
+        <button class="icon" data-a="pw" title="Копировать пароль">🔑</button>
+        ${e.url?'<button class="icon" data-a="go" title="Открыть сайт">↗</button>':''}
+      </div></div>`;
+  }).join('');
+  const emp = $('#empty');
+  emp.hidden = list.length > 0;
+  emp.innerHTML = E.length === 0
+    ? '<div class="big">🗝️</div><p>Хранилище пустое.<br>Нажмите <b>＋ Добавить</b>, чтобы сохранить первый пароль,<br>или перенесите все пароли из браузера.</p><button class="btn primary" data-csv>📥 Импорт из браузера</button>'
+    : '<div class="big">🔍</div><p>Ничего не найдено</p>';
+}
+$('#side').addEventListener('click', e => { const b = e.target.closest('[data-f]'); if(b){ S.filter = b.dataset.f; render() } });
+$('#q').addEventListener('input', e => { S.q = e.target.value; render() });
+$('#list').addEventListener('click', e => {
+  const card = e.target.closest('.card'); if(!card) return;
+  const it = S.data.entries.find(x => x.id === card.dataset.id), a = e.target.closest('[data-a]')?.dataset.a;
+  if(a === 'login') copy(it.login, 'Логин');
+  else if(a === 'pw') copy(it.password, 'Пароль');
+  else if(a === 'go') window.open(normUrl(it.url), '_blank', 'noopener');
+  else openEdit(it);
+});
+
+/* ---------- edit ---------- */
+const F = $('#editForm');
+function openEdit(it){
+  S.editId = it?.id || null;
+  F.reset(); $('#edPw').type = 'password';
+  $('#editTitle').textContent = it ? 'Редактирование' : 'Новая запись';
+  $('#delBtn').hidden = !it;
+  if(it){ ['title','login','password','url','cat','notes'].forEach(k => F.elements[k].value = it[k] || ''); F.elements.fav.checked = !!it.fav }
+  else if(S.filter.startsWith('cat:')) F.elements.cat.value = S.filter.slice(4);
+  $('#edMeta').textContent = it ? `Создано: ${fmtDate(it.created)} · Изменено: ${fmtDate(it.updated)}` : '';
+  meter($('#edMeter'), $('#edLabel'), F.elements.password.value);
+  $('#dlgEdit').showModal(); F.elements.title.focus();
+}
+F.elements.password.addEventListener('input', e => meter($('#edMeter'), $('#edLabel'), e.target.value));
+F.addEventListener('click', e => { const b = e.target.closest('[data-copyf]'); if(b) copy(F.elements[b.dataset.copyf].value, b.dataset.copyf==='login'?'Логин':'Пароль') });
+$('#inlineGen').addEventListener('click', () => {
+  F.elements.password.value = generate(prefs.gen); $('#edPw').type = 'text';
+  meter($('#edMeter'), $('#edLabel'), F.elements.password.value);
+});
+F.addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = Object.fromEntries(['title','login','password','url','cat','notes'].map(k => [k, F.elements[k].value.trim()]));
+  v.password = F.elements.password.value; v.fav = F.elements.fav.checked;
+  const now = Date.now();
+  if(S.editId){ Object.assign(S.data.entries.find(x => x.id === S.editId), v, {updated:now}) }
+  else S.data.entries.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(now)+Math.random(), ...v, created:now, updated:now });
+  await persist(); $('#dlgEdit').close(); render(); toast('Сохранено');
+});
+$('#delBtn').addEventListener('click', async () => {
+  const it = S.data.entries.find(x => x.id === S.editId);
+  if(!confirm(`Удалить «${it.title}»?`)) return;
+  S.data.entries = S.data.entries.filter(x => x.id !== S.editId);
+  await persist(); $('#dlgEdit').close(); render(); toast('Запись удалена');
+});
+$('#addBtn').addEventListener('click', () => openEdit(null));
+
+/* ---------- generator ---------- */
+const G = { len:$('#gLen'), up:$('#gUp'), lo:$('#gLo'), di:$('#gDi'), sy:$('#gSy'), sim:$('#gSim') };
+function regen(){
+  const o = prefs.gen;
+  o.len = +G.len.value; ['up','lo','di','sy','sim'].forEach(k => o[k] = G[k].checked);
+  if(!o.up && !o.lo && !o.di && !o.sy){ G.lo.checked = o.lo = true }
+  savePrefs(); $('#gLenV').textContent = o.len;
+  const p = generate(o); $('#genOut').textContent = p; meter($('#genMeter'), $('#genLabel'), p);
+}
+Object.values(G).forEach(el => el.addEventListener('input', regen));
+$('#genRe').addEventListener('click', regen);
+$('#genCopy').addEventListener('click', () => copy($('#genOut').textContent, 'Пароль'));
+$('#genBtn').addEventListener('click', () => {
+  const o = prefs.gen; G.len.value = o.len; ['up','lo','di','sy','sim'].forEach(k => G[k].checked = o[k]);
+  regen(); $('#genUse').hidden = true; $('#dlgGen').showModal();
+});
+
+/* ---------- email generator ---------- */
+const TR = {а:'a',б:'b',в:'v',г:'g',д:'d',е:'e',ё:'e',ж:'zh',з:'z',и:'i',й:'y',к:'k',л:'l',м:'m',н:'n',о:'o',п:'p',р:'r',с:'s',т:'t',у:'u',ф:'f',х:'h',ц:'c',ч:'ch',ш:'sh',щ:'sch',ъ:'',ы:'y',ь:'',э:'e',ю:'yu',я:'ya'};
+const slug = s => [...(s||'').toLowerCase()].map(c => TR[c] ?? c).join('').replace(/[^a-z0-9]/g,'').slice(0,24);
+const W1 = ['swift','quiet','blue','lucky','brave','calm','green','silver','happy','sunny','misty','cosmic','little','golden','wild','polar'];
+const W2 = ['fox','river','owl','maple','comet','panda','tiger','cloud','pixel','falcon','otter','cedar','wolf','ember','lotus','raven'];
+const PUBLIC_MAIL = /^(gmail|googlemail|yahoo|outlook|hotmail|live|msn|icloud|me|mac|aol|proton|protonmail|pm|gmx|zoho|yandex|ya|mail|inbox|list|bk|rambler|ukr|i)\.[a-z.]+$/;
+const pick = a =>a[rnd(a.length)];
+const randStr = n => Array.from({length:n}, () => 'abcdefghijkmnpqrstuvwxyz23456789'[rnd(32)]).join('');
+const MAIL_HINTS = {
+  plus: 'Письма придут на вашу основную почту. Работает в Gmail, Outlook, Яндексе, iCloud, Proton. По метке видно, какой сайт передал ваш адрес.',
+  dots: 'Gmail не учитывает точки в имени — письма придут вам. Некоторые сайты считают такие адреса разными.',
+  random: 'Работает, только если на вашем домене включён приём писем на любой адрес (catch-all).'
+};
+function makeMail(o){
+  const m = /^([^@\s]+)@([^@\s]+\.[^@\s]+)$/.exec((o.base||'').trim());
+  if(o.mode === 'random'){
+    const dom = (o.dom||'').trim().replace(/^@/,'').toLowerCase();
+    if(!dom || !dom.includes('.')) return {err:'Укажите свой домен, например mydomain.com'};
+    if(PUBLIC_MAIL.test(dom)) return {err:'Это публичный почтовый сервис — случайный адрес там принадлежит чужому человеку. Нужен ваш собственный домен.'};
+    return {mail:`${pick(W1)}.${pick(W2)}${rnd(900)+100}@${dom}`};
+  }
+  if(!m) return {err:'Введите основную почту, например you@gmail.com'};
+  const local = m[1].split('+')[0], dom = m[2].toLowerCase();
+  if(o.mode === 'dots'){
+    if(!/^(gmail|googlemail)\.com$/.test(dom)) return {err:'Вариант с точками работает только для адресов Gmail'};
+    const ch = local.replace(/\./g,'').split('');
+    if(ch.length < 2) return {err:'Слишком короткое имя'};
+    let out; do out = ch.map((c,i) => i && rnd(2) ? '.'+c : c).join(''); while(!out.includes('.'));
+    return {mail:`${out}@${dom}`};
+  }
+  return {mail:`${local}+${slug(o.tag) || randStr(6)}@${dom}`};
+}
+MAIL_HINTS.temp = 'Настоящий временный ящик: письма приходят прямо сюда и хранятся около часа. Только для сайтов‑одноразок — ящик может прочитать любой, кто знает адрес.';
+
+/* temp mail via Guerrilla Mail public API */
+const GM = 'https://api.guerrillamail.com/ajax.php?';
+const GM_DOMAINS = ['sharklasers.com','guerrillamail.com','guerrillamail.net','guerrillamail.org','grr.la','guerrillamailblock.com','pokemail.net','spam4.me'];
+const gmSid = new Map();   // user -> session token, memory only
+let tmView = null, tmBusy = false;
+const unent = s => { const t = document.createElement('textarea'); t.innerHTML = s || ''; return t.value };
+async function gm(p){
+  const r = await fetch(GM + new URLSearchParams(p));
+  if(!r.ok) throw new Error(`Сервис почты недоступен (${r.status})`);
+  return r.json();
+}
+async function gmSession(user, force){
+  if(!force && gmSid.has(user)) return gmSid.get(user);
+  const s = await gm({f:'set_email_user', email_user:user, lang:'ru'});
+  if(!s.sid_token) throw new Error('Не удалось открыть ящик');
+  gmSid.set(user, s.sid_token); return s.sid_token;
+}
+const curBox = () => (S.data.boxes || []).find(b => b.user === S.data.mail.box);
+const boxAddr = b => b ? `${b.user}@${b.dom}` : '';
+function findCode(t){
+  const near = t.match(/(?:код|code|pin|otp|парол)[^0-9]{0,40}(\d{4,8})(?!\d)/i);
+  if(near) return near[1];
+  const any = t.match(/(?<!\d)\d{5,8}(?!\d)/);
+  return any ? any[0] : null;
+}
+async function loadInbox(){
+  const box = curBox(), list = $('#tInbox'), st = $('#tStat');
+  if(!box){ list.innerHTML = '<p class="muted small">Нажмите «＋ Новый ящик» — адрес появится сразу</p>'; st.textContent = ''; return }
+  if(tmBusy || tmView) return;
+  tmBusy = true; st.textContent = 'проверяю…';
+  try{
+    let sid = await gmSession(box.user), l = await gm({f:'get_email_list', offset:0, sid_token:sid});
+    if(!l.list || (l.email && !l.email.startsWith(box.user + '@'))){   // session expired → reopen this inbox
+      sid = await gmSession(box.user, true); l = await gm({f:'get_email_list', offset:0, sid_token:sid});
+    }
+    if(l.sid_token) gmSid.set(box.user, l.sid_token);
+    if(curBox() !== box || tmView) return;
+    const ms = (l.list || []).filter(m => !/@guerrillamail\.com$/i.test(m.mail_from || ''));
+    list.innerHTML = ms.length ? ms.map(m => `<div class="msg" data-mid="${esc(m.mail_id)}">
+        <b>${esc(unent(m.mail_subject) || '(без темы)')}</b>
+        <div class="x">${esc(unent(m.mail_from))} · ${fmtDate(m.mail_timestamp * 1000)}</div>
+        <div class="x">${esc(unent(m.mail_excerpt))}</div></div>`).join('')
+      : '<p class="muted small">Писем пока нет — проверяю каждые 8 секунд</p>';
+    st.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru-RU');
+  }catch(e){ st.textContent = navigator.onLine === false ? 'нет интернета' : (e.message || 'ошибка сети') }
+  finally{ tmBusy = false }
+}
+function closeMsg(){ tmView = null; $('#tMsg').hidden = true; $('#tInbox').hidden = false; $('#tFrame').srcdoc = '' }
+function renderBoxes(){
+  const bs = S.data.boxes || [], b = curBox();
+  $('#tBox').innerHTML = bs.length
+    ? bs.map(x => `<option value="${esc(x.user)}">${esc(boxAddr(x))} · ${new Date(x.created).toLocaleDateString('ru-RU')}</option>`).join('')
+    : '<option value="">Ящиков пока нет</option>';
+  $('#tBox').value = b?.user || '';
+  $('#tDom').innerHTML = GM_DOMAINS.map(d => `<option>${d}</option>`).join('');
+  $('#tDom').value = b?.dom || GM_DOMAINS[0];
+  $('#tDom').disabled = $('#tDel').disabled = !b;
+}
+$('#tInbox').addEventListener('click', async e => {
+  const el = e.target.closest('[data-mid]'), box = curBox();
+  if(!el || !box) return;
+  try{
+    const m = await gm({f:'fetch_email', email_id:el.dataset.mid, sid_token: await gmSession(box.user)});
+    tmView = el.dataset.mid;
+    const body = m.mail_body || '';
+    $('#tMeta').textContent = `${unent(m.mail_from)} · ${unent(m.mail_subject)}`;
+    $('#tFrame').srcdoc = '<meta charset="utf-8"><base target="_blank"><style>body{font:14px system-ui,sans-serif;margin:12px;color:#111;overflow-wrap:anywhere}</style>' + body;
+    const code = findCode(unent(body.replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ')));
+    $('#tCode').hidden = !code;
+    if(code){ $('#tCode').textContent = `Код ${code} ⧉`; $('#tCode').dataset.code = code }
+    $('#tInbox').hidden = true; $('#tMsg').hidden = false;
+  }catch(err){ toast(err.message || 'Не удалось открыть письмо') }
+});
+$('#tCode').addEventListener('click', e => copy(e.currentTarget.dataset.code, 'Код'));
+$('#tBack').addEventListener('click', () => { closeMsg(); loadInbox() });
+$('#tNew').addEventListener('click', async e => {
+  const btn = e.currentTarget; btn.disabled = true;
+  try{
+    const user = `${pick(W1)}${pick(W2)}${randStr(6)}`;
+    await gmSession(user, true);
+    (S.data.boxes ||= []).unshift({user, dom:GM_DOMAINS[0], created:Date.now()});
+    S.data.mail.box = user; closeMsg();
+    await persist(); renderBoxes(); mailRegen(); toast('Ящик создан');
+  }catch(err){ toast(navigator.onLine === false ? 'Нет интернета' : 'Сервис почты не отвечает, попробуйте ещё раз') }
+  finally{ btn.disabled = false }
+});
+$('#tBox').addEventListener('change', e => { S.data.mail.box = e.target.value; closeMsg(); renderBoxes(); mailRegen() });
+$('#tDom').addEventListener('change', e => { curBox().dom = e.target.value; persist(); mailRegen() });
+$('#tDel').addEventListener('click', async () => {
+  const b = curBox();
+  if(!b || !confirm(`Забыть ящик ${boxAddr(b)}?\nПисьма в нём станут недоступны из менеджера.`)) return;
+  const sid = gmSid.get(b.user);
+  if(sid) gm({f:'forget_me', email_addr:boxAddr(b), sid_token:sid}).catch(() => {});
+  gmSid.delete(b.user);
+  S.data.boxes = S.data.boxes.filter(x => x !== b);
+  S.data.mail.box = S.data.boxes[0]?.user || '';
+  closeMsg(); await persist(); renderBoxes(); mailRegen();
+});
+setInterval(() => { if($('#dlgMail').open && S.data?.mail?.mode === 'temp' && !document.hidden) loadInbox() }, 8000);
+
+let mailTarget = null;
+function openMail(target, tag){
+  mailTarget = target;
+  const c = S.data.mail ||= {mode:'temp', base:'', dom:''};
+  S.data.boxes ||= [];
+  if(!curBox()) c.box = S.data.boxes[0]?.user || '';
+  $('#mMode').value = c.mode; $('#mBase').value = c.base; $('#mDom').value = c.dom; $('#mTag').value = tag || '';
+  $('#mailUse').hidden = !target;
+  closeMsg(); renderBoxes(); mailRegen(); $('#dlgMail').showModal();
+}
+function mailRegen(){
+  const c = S.data.mail;
+  c.mode = $('#mMode').value; c.base = $('#mBase').value.trim(); c.dom = $('#mDom').value.trim();
+  const temp = c.mode === 'temp';
+  $('#tempWrap').hidden = !temp;
+  $('#mBaseWrap').hidden = temp || c.mode === 'random'; $('#mTagWrap').hidden = c.mode !== 'plus'; $('#mDomWrap').hidden = c.mode !== 'random';
+  const r = temp ? {mail: boxAddr(curBox())} : makeMail({...c, tag:$('#mTag').value});
+  $('#mailOut').textContent = r.mail || '—';
+  $('#mailHint').textContent = r.err || MAIL_HINTS[c.mode];
+  $('#mailHint').style.color = r.err ? 'var(--danger)' : '';
+  $('#mailUse').disabled = $('#mailCopy').disabled = !r.mail;
+  $('#mailRe').title = temp ? 'Проверить почту' : 'Ещё вариант';
+  if(temp) loadInbox();
+}
+['#mMode','#mBase','#mTag','#mDom'].forEach(s => $(s).addEventListener('input', mailRegen));
+$('#mailRe').addEventListener('click', () => { if(S.data.mail.mode === 'temp'){ closeMsg(); loadInbox() } else mailRegen() });
+$('#mailCopy').addEventListener('click', () => copy($('#mailOut').textContent, 'Адрес'));
+$('#mailUse').addEventListener('click', () => {
+  mailTarget.value = $('#mailOut').textContent;
+  const notes = F.elements.notes;
+  if(S.data.mail.mode === 'temp' && !notes.value.includes('Одноразовая почта'))
+    notes.value = (notes.value ? notes.value + '\n' : '') + 'Одноразовая почта (Guerrilla Mail) — проверять в ✉ Почта';
+  $('#dlgMail').close();
+});
+$('#dlgMail').addEventListener('close', () => { closeMsg(); if(S.key) persist() });
+$('#mailBtn').addEventListener('click', () => openMail(null, ''));
+$('#inlineMail').addEventListener('click', () => {
+  const u = F.elements.url.value.trim();
+  openMail(F.elements.login, u ? host(u).split('.').slice(-2,-1)[0] || host(u) : F.elements.title.value);
+});
+
+/* ---------- settings ---------- */
+$('#setBtn').addEventListener('click', () => { $('#sTheme').value = prefs.theme; $('#sLock').value = prefs.lock; $('#dlgSet').showModal() });
+$('#sTheme').addEventListener('change', e => { prefs.theme = e.target.value; savePrefs(); applyTheme() });
+$('#sLock').addEventListener('change', e => { prefs.lock = +e.target.value; savePrefs() });
+$('#expBtn').addEventListener('click', async () => {
+  const blob = new Blob([JSON.stringify(await seal(), null, 1)], {type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `passwords-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast('Резервная копия сохранена');
+});
+$('#impBtn').addEventListener('click', () => $('#impFile').click());
+$('#impFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if(!file) return;
+  let blob; try{ blob = JSON.parse(await file.text()); if(!blob.ct) throw 0 }catch{ return toast('Это не файл резервной копии') }
+  const res = await ask({ title:'Импорт', text:'Введите мастер‑пароль, которым зашифрована копия.', check: async pw => { try{ return await unseal(blob, pw) }catch{ throw 'Неверный пароль' } } });
+  if(!res) return;
+  const have = new Set(S.data.entries.map(x => x.id)), add = res.data.entries.filter(x => !have.has(x.id));
+  S.data.entries.push(...add); await persist(); render();
+  toast(`Импортировано записей: ${add.length}` + (res.data.entries.length - add.length ? ` (пропущено дублей: ${res.data.entries.length - add.length})` : ''));
+});
+$('#chgBtn').addEventListener('click', async () => {
+  const pw = await ask({ title:'Новый мастер‑пароль', text:'Минимум 8 символов. Старые резервные копии останутся со старым паролем.', confirm:true,
+    check: async pw => { if(pw.length < 8) throw 'Минимум 8 символов'; return pw } });
+  if(!pw) return;
+  S.salt = crypto.getRandomValues(new Uint8Array(16)); S.key = await deriveKey(pw, S.salt);
+  await persist(); toast('Мастер‑пароль изменён');
+});
+
+/* ---------- import from browser (CSV) ---------- */
+const CSV_COLS = {
+  title:['name','title','account','название','имя'],
+  url:['url','login_uri','website','web site','origin','address','hostname','сайт','адрес'],
+  login:['username','login','login_username','login name','user','user name','email','e-mail','логин','имя пользователя'],
+  password:['password','login_password','pass','пароль'],
+  notes:['note','notes','comments','extra','заметки','примечание'],
+  cat:['folder','group','category','папка','группа']
+};
+function parseCSV(text){
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/, 1)[0], d = (first.split(';').length > first.split(',').length) ? ';' : ',';
+  const rows = []; let row = [], f = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){ if(c === '"'){ if(text[i+1] === '"'){ f += '"'; i++ } else q = false } else f += c }
+    else if(c === '"') q = true;
+    else if(c === d){ row.push(f); f = '' }
+    else if(c === '\n' || c === '\r'){ if(c === '\r' && text[i+1] === '\n') i++; row.push(f); f = ''; if(row.some(x => x !== '')) rows.push(row); row = [] }
+    else f += c;
+  }
+  row.push(f); if(row.some(x => x !== '')) rows.push(row);
+  return rows;
+}
+function csvFormat(h){
+  const s = h.join(',');
+  return s.includes('httprealm') ? 'Firefox' : s.includes('login_uri') ? 'Bitwarden' : s.includes('web site') ? 'KeePass'
+    : s.includes('archived') ? '1Password' : s.includes('otpauth') ? 'Safari' : s.startsWith('name,url,username,password') ? 'Chrome / Edge / Яндекс' : 'CSV';
+}
+const entryKey = e => [host(e.url || '').toLowerCase(), (e.login || '').toLowerCase()].join('\n');
+let csvPlan = null;
+function openCsv(){
+  csvPlan = null;
+  $('#csvStep1').hidden = false; $('#csvStep2').hidden = $('#csvStep3').hidden = $('#csvGo').hidden = true;
+  $('#csvErr').textContent = ''; $('#csvClose').textContent = 'Отмена';
+  $('#dlgSet').close(); $('#dlgCsv').showModal();
+}
+document.addEventListener('click', e => { if(e.target.closest('[data-csv]') && S.key) openCsv() });
+$('#csvPick').addEventListener('click', () => $('#csvFile').click());
+$('#csvFile').addEventListener('change', async e => {
+  const file = e.target.files[0]; e.target.value = ''; if(!file) return;
+  const rows = parseCSV(await file.text()), err = $('#csvErr');
+  if(rows.length < 2) return err.textContent = 'Файл пустой или это не CSV';
+  const head = rows[0].map(h => h.trim().toLowerCase()), col = {};
+  for(const [k, names] of Object.entries(CSV_COLS)) col[k] = head.findIndex(h => names.includes(h));
+  if(col.password < 0) return err.textContent = 'Не нашёл колонку с паролями — это точно экспорт паролей?';
+  const get = (r, k) => col[k] >= 0 ? (r[col[k]] || '').trim() : '';
+  const items = rows.slice(1).map(r => {
+    const url = get(r, 'url');
+    return { title: get(r, 'title') || host(url) || get(r, 'login') || 'Без названия', url, login: get(r, 'login'),
+             password: col.password >= 0 ? (r[col.password] || '') : '', notes: get(r, 'notes'), cat: get(r, 'cat') };
+  }).filter(x => x.password && !/^(chrome|about|moz-extension|chrome-extension):/i.test(x.url));
+
+  const existing = new Map(S.data.entries.map(x => [entryKey(x), x])), seen = new Set();
+  const plan = { add:[], update:[], same:0, total:items.length };
+  for(const it of items){
+    const k = entryKey(it);
+    if(seen.has(k + '\n' + it.password)) { plan.same++; continue }
+    seen.add(k + '\n' + it.password);
+    const ex = existing.get(k);
+    if(!ex) { plan.add.push(it); existing.set(k, it) }
+    else if(ex.password === it.password) plan.same++;
+    else if(plan.add.includes(ex)) plan.add.push(it);   // several passwords for one login inside the file — keep both
+    else plan.update.push([ex, it]);
+  }
+  if(!items.length) return err.textContent = 'В файле нет записей с паролями';
+  csvPlan = plan;
+  $('#csvSum').innerHTML = `Формат: <b>${esc(csvFormat(head))}</b> · найдено записей: <b>${plan.total}</b><br>
+    Новых: <b>${plan.add.length}</b> · с другим паролем: <b>${plan.update.length}</b> · уже есть: <b>${plan.same}</b>`;
+  $('#csvList').innerHTML = [...plan.add.map(x => [x, 'новая']), ...plan.update.map(([, x]) => [x, 'другой пароль'])].slice(0, 200)
+    .map(([x, t]) => `<div class="msg"><b>${esc(x.title)}</b><div class="x">${esc(x.login || '—')} · ${t}</div></div>`).join('')
+    || '<p class="muted small">Всё уже есть в хранилище</p>';
+  $('#csvUpd').closest('label').hidden = !plan.update.length;
+  $('#csvStep1').hidden = true; $('#csvStep2').hidden = false;
+  $('#csvGo').hidden = !(plan.add.length || plan.update.length);
+});
+$('#csvGo').addEventListener('click', async () => {
+  const p = csvPlan, now = Date.now(), folder = $('#csvFolder').checked ? 'Из браузера' : '';
+  for(const x of p.add)
+    S.data.entries.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(now) + Math.random(), ...x, cat: folder || x.cat, fav:false, created:now, updated:now });
+  let upd = 0;
+  if($('#csvUpd').checked) for(const [ex, x] of p.update){ ex.password = x.password; ex.updated = now; upd++ }
+  await persist(); render();
+  $('#csvDone').textContent = `Добавлено: ${p.add.length}` + (upd ? `, обновлено паролей: ${upd}` : '');
+  $('#csvStep2').hidden = true; $('#csvStep3').hidden = false; $('#csvGo').hidden = true; $('#csvClose').textContent = 'Готово';
+  csvPlan = null;
+});
+
+/* generic password prompt */
+function ask({title, text, confirm=false, check}){
+  return new Promise(resolve => {
+    const d = $('#dlgAsk'), f = $('#askForm');
+    $('#askTitle').textContent = title; $('#askText').textContent = text;
+    f.reset(); $('#askErr').textContent = ''; $('#ask2wrap').hidden = !confirm;
+    let done = false;
+    const finish = v => { if(done) return; done = true; f.onsubmit = null; d.close(); resolve(v) };
+    f.onsubmit = async e => {
+      e.preventDefault();
+      const p = $('#ask1').value;
+      if(confirm && p !== $('#ask2').value) return $('#askErr').textContent = 'Пароли не совпадают';
+      try{ finish(await check(p)) }catch(m){ $('#askErr').textContent = m }
+    };
+    $('#askCancel').onclick = () => finish(null);
+    d.onclose = () => finish(null);
+    d.showModal(); $('#ask1').focus();
+  });
+}
+
+/* keyboard shortcuts */
+addEventListener('keydown', e => {
+  if(!S.key || document.querySelector('dialog[open]') || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  if(e.key === '/'){ e.preventDefault(); $('#q').focus() }
+  else if(e.key.toLowerCase() === 'n' || e.key.toLowerCase() === 'т'){ e.preventDefault(); openEdit(null) }
+  else if(e.key.toLowerCase() === 'l' || e.key.toLowerCase() === 'д'){ lock() }
+});
+
+/* installable app (only when served over https / localhost) */
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.storage?.persist?.().catch(() => {});   // ask the browser not to evict the vault
+}
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installSec').hidden = false });
+$('#installBtn').addEventListener('click', async () => {
+  if(!installEvt) return;
+  installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installSec').hidden = true;
+});
+addEventListener('appinstalled', () => { $('#installSec').hidden = true; toast('Приложение установлено') });
+
+if(!crypto.subtle){ document.body.innerHTML = '<p style="padding:24px">Этот браузер не поддерживает шифрование (Web Crypto). Откройте файл в свежем Chrome, Edge или Firefox.</p>' }
+else showLock();
+</script>
+</body>
+</html>
